@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     SDL_Window* window = SDL_CreateWindow("Scratch CPP Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
-    // لود فونت 
+    // لود فونت
     TTF_Font* font = TTF_OpenFont("C:\\Windows\\Fonts\\arial.ttf", 16);
     if (!font) std::cout << "Font load error: " << TTF_GetError() << std::endl;
 
