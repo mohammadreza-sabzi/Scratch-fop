@@ -30,7 +30,7 @@ struct Block {
     bool isDragging;
     int dragOffsetX, dragOffsetY; // فاصله موس تا گوشه بلوک هنگام درگ کردن
 
-    // اتصال به بلوک بعدی 
+    // اتصال به بلوک بعدی
     Block* next;
 };
 
