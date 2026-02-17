@@ -7,6 +7,7 @@
 
 #include <SDL2/SDL.h>
 #include <string>
+#include "structs.h"
 
 // مدیریت تایپ کردن متن (اضافه کردن حروف و Backspace)
 void handle_typing(SDL_Event& e, std::string& targetString) {
@@ -29,6 +30,49 @@ void handle_scroll_value(SDL_Event& e, int& scrollOffset, int scrollSpeed = 20) 
         } else if (e.wheel.y < 0) { // Scroll Down
             scrollOffset -= scrollSpeed;
         }
+    }
+}
+
+
+// بررسی برخورد نقطه (موس) با مستطیل (بلوک)
+bool point_in_rect(int px, int py, Block* b) {
+    return (px >= b->x && px <= b->x + b->w && py >= b->y && py <= b->y + b->h);
+}
+
+// مدیریت کلیک موس
+void handle_mouse_down(SDL_Event& e, std::vector<Block>& blocks, Block** draggedBlock) {
+    int mx = e.button.x;
+    int my = e.button.y;
+
+    // حلقه برعکس: از آخرین بلوک (روترین) شروع می‌کنیم
+    // تا اگر دو بلوک روی هم بودند، اونی که بالاست انتخاب شود
+    for (int i = blocks.size() - 1; i >= 0; i--) {
+        if (point_in_rect(mx, my, &blocks[i])) {
+            *draggedBlock = &blocks[i];
+            (*draggedBlock)->isDragging = true;
+
+            // محاسبه فاصله موس تا گوشه چپ-بالای بلوک
+            (*draggedBlock)->dragOffsetX = mx - blocks[i].x;
+            (*draggedBlock)->dragOffsetY = my - blocks[i].y;
+            break; // فقط یک بلوک را بردار
+        }
+    }
+}
+
+// مدیریت رها کردن موس
+void handle_mouse_up(Block** draggedBlock) {
+    if (*draggedBlock) {
+        (*draggedBlock)->isDragging = false;
+        *draggedBlock = nullptr; // هیچ بلوکی دیگر در حال درگ نیست
+    }
+}
+
+// مدیریت حرکت موس
+void handle_mouse_motion(SDL_Event& e, Block** draggedBlock) {
+    if (*draggedBlock) {
+        // تغییر مکان بلوک بر اساس مکان جدید موس منهای آفست اولیه
+        (*draggedBlock)->x = e.motion.x - (*draggedBlock)->dragOffsetX;
+        (*draggedBlock)->y = e.motion.y - (*draggedBlock)->dragOffsetY;
     }
 }
 
