@@ -30,7 +30,6 @@ void render_text(SDL_Renderer* renderer, TTF_Font* font, const std::string& text
 }
 
 // رسم یک دکمه یا بلوک ساده (مستطیل توپر + حاشیه)
-// الگوبرداری از main.cpp قسمت button rects
 void render_rect_with_border(SDL_Renderer* renderer, int x, int y, int w, int h, SDL_Color fillParams, SDL_Color borderParams) {
     SDL_Rect rect = {x, y, w, h};
 
