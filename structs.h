@@ -15,38 +15,71 @@ enum BlockType {
     BLOCK_MOTION,  // آبی (حرکت)
     BLOCK_LOOKS,   // بنفش (ظاهر)
     BLOCK_CONTROL  // نارنجی (حلقه‌ها)
+    BLOCK_LOOKS,
+    BLOCK_CONTROL,
+    BLOCK_SOUND,
+    BLOCK_SENSING,
+    BLOCK_OPERATORS,
+    BLOCK_VARIABLES
+};
+
+enum CategoryType {
+    CAT_MOTION,
+    CAT_LOOKS,
+    CAT_SOUND,
+    CAT_EVENTS,
+    CAT_CONTROL,
+    CAT_SENSING,
+    CAT_OPERATORS,
+    CAT_VARIABLES
 };
 
 struct Block {
     int id;
     BlockType type;
-    std::string text; // متنی که روی بلوک نوشته می‌شود
+    std::string text;
 
-    // مختصات و ابعاد
     int x, y;
     int w, h;
 
-    // وضعیت درگ شدن
     bool isDragging;
-    int dragOffsetX, dragOffsetY; // فاصله موس تا گوشه بلوک هنگام درگ کردن
+    int dragOffsetX, dragOffsetY;
 
-    // اتصال به بلوک بعدی
     Block* next;
+    Block* prev;
 };
 
 struct Stage {
     int x, y;
-    int w,h;
+    int w, h;
     SDL_Color color;
 };
 
 struct Sprite {
-    int x,y;
-    int w,h;
+    float x, y;
+    int w, h;
     SDL_Texture* texture;
+    bool visible;
+    std::string sayText;
+    int sayTimer;
 };
 
+struct Workspace {
+    int x, y, w, h;
+};
 
+struct Category {
+    CategoryType type;
+    std::string name;
+    SDL_Rect rect;
+    SDL_Color color;
+};
 
+struct Palette {
+    std::vector<Category> categories;
+    CategoryType activeCategory;
+    int scrollOffset;
+    int x, y, w, h;
+};
 
-#endif //SCRATCH_FOP_STRUCTS_H
+#endif
