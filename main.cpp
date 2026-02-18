@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
                     if (mx>=playbutton.x && mx<=playbutton.x+playbutton.w && my>=playbutton.y && my<=playbutton.y+playbutton.h) {
                         for (Block* b:blocks) {
                             if (b->type==BLOCK_EVENT) {
-                                run_script(b);
+                                run_script(b, &sprite);
                             }
                         }
                     }

@@ -21,10 +21,20 @@ void hazf_block(Block * block) {
             default: cout<<"[UNKNOWN] Block ID: "<<block->id<<endl;
     }
 }
-void run_script(Block * startBlock) {
+void run_script(Block * startBlock, Sprite * sprite) {
     Block * current =startBlock;
     while (current != nullptr) {
-        hazf_block(current);
+        switch (current->type) {
+            case BLOCK_MOTION:sprite->x+=10;
+                break;
+            case BLOCK_LOOKS:
+                cout<<"[LOOKS] "<<current->text<<endl;
+                break;
+            case BLOCK_EVENT:
+                cout<<"[EVENT] "<<current->text<<endl;
+                break;
+
+        }
         SDL_Delay(100);
         current = current->next;
     }
@@ -33,7 +43,7 @@ void check_run_click( int mx, int my, const vector <Block*> & blocks) {
     for (Block*b:blocks) {
         if (b->type==BLOCK_EVENT && b->text=="When Flag Clicked" ) {
             cout<<"---Execution Started---\n";
-            run_script(b);
+            // run_script(b, &sprite);
             cout<<"---Execution Ended---\n";
         }
     }
