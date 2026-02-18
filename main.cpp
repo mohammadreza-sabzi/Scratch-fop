@@ -17,10 +17,19 @@ SDL_Rect playbutton={1000,10,50,50};
 
 int main(int argc, char *argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
+    IMG_Init(IMG_INIT_PNG);
     TTF_Init();
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
 
     SDL_Window* window = SDL_CreateWindow("Scratch CPP Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_Surface* surface = IMG_Load("sprite.png");
+    SDL_Texture* SpriteTexture = SDL_CreateTextureFromSurface(renderer, surface);
+    // SDL_FreeSurface(surface);
+    int texW, texH;
+    SDL_QueryTexture(SpriteTexture, NULL, NULL, &texW, &texH);
+    Sprite sprite={800,250,texW,texH, SpriteTexture};
+
 
     // لود فونت
     TTF_Font* font = TTF_OpenFont("C:\\Windows\\Fonts\\arial.ttf", 16);
@@ -84,9 +93,10 @@ int main(int argc, char *argv[]) {
         SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
         SDL_RenderFillRect(renderer, &playbutton);
 
-        // رسم تمام بلوک‌ها
+        // رسم
         for (auto& block : blocks) {
             draw_stage(renderer,&stage);
+            draw_sprite(renderer, &sprite);
             draw_block(renderer, font, block);
         }
 
@@ -98,6 +108,8 @@ int main(int argc, char *argv[]) {
     // خروج
     TTF_CloseFont(font);
     SDL_DestroyRenderer(renderer);
+    SDL_DestroyTexture(SpriteTexture);
+    IMG_Quit();
     SDL_DestroyWindow(window);
     TTF_Quit();
     SDL_Quit();

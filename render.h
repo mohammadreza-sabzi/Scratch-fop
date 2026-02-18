@@ -95,4 +95,10 @@ void draw_stage(SDL_Renderer* renderer, Stage* stage) {
     SDL_RenderDrawRect(renderer, &rect);
 }
 
+void draw_sprite(SDL_Renderer* renderer, Sprite* sprite) {
+    if (!sprite || !sprite->texture) return;
+    SDL_Rect rect = {sprite->x, sprite->y, sprite->w, sprite->h};
+    SDL_RenderCopy(renderer, sprite->texture, nullptr, &rect);
+}
+
 #endif //SCRATCH_FOP_RENDER_H

@@ -40,6 +40,13 @@ struct Stage {
     SDL_Color color;
 };
 
+struct Sprite {
+    int x,y;
+    int w,h;
+    SDL_Texture* texture;
+};
+
+
 
 
 #endif //SCRATCH_FOP_STRUCTS_H
