@@ -34,6 +34,12 @@ struct Block {
     Block* next;
 };
 
+struct Stage {
+    int x, y;
+    int w,h;
+    SDL_Color color;
+};
+
 
 
 #endif //SCRATCH_FOP_STRUCTS_H

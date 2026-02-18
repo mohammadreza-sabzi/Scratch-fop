@@ -9,6 +9,8 @@
 #include <SDL2/SDL_mixer.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL2_gfx.h>
+#include <vector>
+#include <cmath>
 
 using namespace std;
 SDL_Rect playbutton={1000,10,50,50};
@@ -41,6 +43,7 @@ int main(int argc, char *argv[]) {
 
     bool quit = false;
     SDL_Event e;
+    Stage stage={350, 50, 800,700,{255,255,255,255}};
 
     // 3. حلقه اصلی
     while (!quit) {
@@ -83,6 +86,7 @@ int main(int argc, char *argv[]) {
 
         // رسم تمام بلوک‌ها
         for (auto& block : blocks) {
+            draw_stage(renderer,&stage);
             draw_block(renderer, font, block);
         }
 

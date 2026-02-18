@@ -86,4 +86,13 @@ void draw_block(SDL_Renderer* renderer, TTF_Font* font, Block* block) {
     draw_text(renderer, font, block->text, block->x + 10, block->y + 10);
 }
 
+void draw_stage(SDL_Renderer* renderer, Stage* stage) {
+    if (!stage) return;
+    SDL_Rect rect = {stage->x, stage->y, stage->w, stage->h};
+    SDL_SetRenderDrawColor(renderer, stage->color.r, stage->color.g, stage->color.b, stage->color.a);
+    SDL_RenderFillRect(renderer, &rect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &rect);
+}
+
 #endif //SCRATCH_FOP_RENDER_H

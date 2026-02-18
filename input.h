@@ -70,7 +70,7 @@ void handle_snap(Block* dragged, std::vector<Block*>& blocks) {
         int targetBottomY=target->y + target->h;
         int draggedTopX=dragged->x;
         int draggedTopY=dragged->y;
-        double distance= std::sqrt(pow(targetBottomX- draggedTopX, 2) + pow(targetBottomY- draggedTopY, 2));
+        double distance= sqrt(pow(targetBottomX- draggedTopX, 2) + pow(targetBottomY- draggedTopY, 2));
         if (distance < Snap_distance) {
             dragged->x = targetBottomX;
             dragged->y = targetBottomY;
