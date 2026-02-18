@@ -36,4 +36,4 @@ struct Block {
 
 // یک لیست جهانی از تمام بلوک‌های موجود در صفحه
 
-#endif SCRATCH_FOP_STRUCTS_H
+#endif //SCRATCH_FOP_STRUCTS_H
