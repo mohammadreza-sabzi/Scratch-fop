@@ -9,12 +9,9 @@
 #include <vector>
 #include <SDL2/SDL.h>
 
-// انواع بلوک‌ها برای رنگ‌بندی مختلف
 enum BlockType {
-    BLOCK_EVENT,   // زرد (شروع)
-    BLOCK_MOTION,  // آبی (حرکت)
-    BLOCK_LOOKS,   // بنفش (ظاهر)
-    BLOCK_CONTROL  // نارنجی (حلقه‌ها)
+    BLOCK_EVENT,
+    BLOCK_MOTION,
     BLOCK_LOOKS,
     BLOCK_CONTROL,
     BLOCK_SOUND,
