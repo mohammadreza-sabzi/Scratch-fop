@@ -10,7 +10,7 @@
 #include "structs.h"
 using namespace std;
 void hazf_block(Block * block) {
-    if (block==false) return;
+    if (!block) return;
     switch (block->type) {
         case BLOCK_EVENT: cout<<"[EVENT] Script Started: "<<block->text<<endl;
             break;
