@@ -34,6 +34,6 @@ struct Block {
     Block* next;
 };
 
-// یک لیست جهانی از تمام بلوک‌های موجود در صفحه
+
 
 #endif //SCRATCH_FOP_STRUCTS_H

@@ -8,6 +8,7 @@ add_executable(Scratch_fop main.cpp
         render.h
         input.h
         globals.h
-        structs.h)
+        structs.h
+        engine.h)
 target_link_libraries(${PROJECT_NAME} -lconio)
 target_link_libraries(${PROJECT_NAME} -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer)

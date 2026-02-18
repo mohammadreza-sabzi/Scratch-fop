@@ -37,7 +37,7 @@ string open_file_dialog() {
 }
 
 // تابع باز کردن پنجره ذخیره فایل
-std::string save_file_dialog() {
+string save_file_dialog() {
 #ifdef _WIN32
     OPENFILENAME ofn;
     char szFile[260] = { 0 };
