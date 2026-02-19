@@ -195,4 +195,3 @@ Block* find_script_start(std::vector<Block*>& blocks) {
 }
 
 #endif
-

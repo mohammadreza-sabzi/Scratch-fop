@@ -71,4 +71,3 @@ void handle_scroll_value(SDL_Event& e, int& scrollOffset) {
 }
 
 #endif
-
