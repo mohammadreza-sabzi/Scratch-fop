@@ -17,7 +17,8 @@ enum BlockType {
     BLOCK_SOUND,
     BLOCK_SENSING,
     BLOCK_OPERATORS,
-    BLOCK_VARIABLES
+    BLOCK_VARIABLES,
+    BLOCK_MYBLOCKS
 };
 
 enum CategoryType {
@@ -28,27 +29,23 @@ enum CategoryType {
     CAT_CONTROL,
     CAT_SENSING,
     CAT_OPERATORS,
-    CAT_VARIABLES
+    CAT_VARIABLES,
+    CAT_MYBLOCKS
 };
 
 struct Block {
     int id;
     BlockType type;
     std::string text;
-
-    int x, y;
-    int w, h;
-
+    int x, y, w, h;
     bool isDragging;
     int dragOffsetX, dragOffsetY;
-
     Block* next;
     Block* prev;
 };
 
 struct Stage {
-    int x, y;
-    int w, h;
+    int x, y, w, h;
     SDL_Color color;
 };
 
@@ -65,18 +62,21 @@ struct Workspace {
     int x, y, w, h;
 };
 
+
 struct Category {
     CategoryType type;
-    std::string name;
-    SDL_Rect rect;
-    SDL_Color color;
+    std::string  name;
+    SDL_Color    color;
+    SDL_Rect     iconRect;
 };
 
 struct Palette {
     std::vector<Category> categories;
     CategoryType activeCategory;
     int scrollOffset;
-    int x, y, w, h;
+    // ابعاد دو پانل
+    int catBarX, catBarY, catBarW, catBarH;
+    int blockListX, blockListY, blockListW, blockListH;
 };
 
 #endif

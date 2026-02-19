@@ -5,85 +5,130 @@
 #ifndef SCRATCH_FOP_ENGINE_H
 #define SCRATCH_FOP_ENGINE_H
 
-#include <iostream>
-#include <vector>
 #include <string>
+#include <cstdlib>
 #include <SDL2/SDL.h>
 #include "structs.h"
-
+#include "globals.h"
 
 struct ScriptRunner {
-    Block*  currentBlock = nullptr;
-    bool    running      = false;
-    Uint32  nextRunTime  = 0;
-    int     delayMs      = 150;
+    bool   running    = false;
+    Block* current    = nullptr;
+    Uint32 waitUntil  = 0;
+    int    repeatCount = 0;
+    Block* repeatStart = nullptr;
 
-    void start(Block* startBlock) {
-        currentBlock = startBlock;
-        running      = true;
-        nextRunTime  = SDL_GetTicks();
+    void start(Block* firstBlock) {
+        running     = true;
+        current     = firstBlock;
+        waitUntil   = 0;
+        repeatCount = 0;
+        repeatStart = nullptr;
     }
 
     void stop() {
-        running      = false;
-        currentBlock = nullptr;
+        running  = false;
+        current  = nullptr;
     }
 
-
     void update(Sprite* sprite) {
-        if (!running || !currentBlock) {
+        if (!running || !current || !sprite) return;
+
+        Uint32 now = SDL_GetTicks();
+        if (now < waitUntil) return;
+
+        Block* b = current;
+
+        execute_block(b, sprite, now);
+
+        current = b->next;
+        if (!current) {
             running = false;
+        }
+    }
+
+    void execute_block(Block* b, Sprite* sprite, Uint32 now) {
+        const std::string& txt = b->text;
+
+        if (b->type == BLOCK_EVENT) {
             return;
         }
 
-        Uint32 now = SDL_GetTicks();
-        if (now < nextRunTime) return;
-
-        Block* b = currentBlock;
-
-        switch (b->type) {
-            case BLOCK_MOTION: {
-
+        if (b->type == BLOCK_MOTION) {
+            if (txt.find("move") != std::string::npos) {
                 int steps = 10;
-                std::string t = b->text;
-                size_t pos = t.find_first_of("0123456789");
-                if (pos != std::string::npos) {
-                    steps = std::stoi(t.substr(pos));
-                }
+                try {
+                    size_t pos = txt.find("move ");
+                    if (pos != std::string::npos)
+                        steps = std::stoi(txt.substr(pos + 5));
+                } catch (...) {}
                 sprite->x += steps;
-                std::cout << "[MOTION] Move " << steps << " steps\n";
-                break;
+
+                if (sprite->x > STAGE_WIDTH  - sprite->w) sprite->x = 0;
+                if (sprite->x < 0)                        sprite->x = (float)(STAGE_WIDTH - sprite->w);
             }
-            case BLOCK_LOOKS: {
-                // "Say Hello!" → نمایش حباب
-                std::string msg = b->text;
-                size_t q1 = msg.find('"');
-                size_t q2 = msg.rfind('"');
-                if (q1 != std::string::npos && q2 != q1) {
-                    sprite->sayText = msg.substr(q1 + 1, q2 - q1 - 1);
-                } else {
-                    sprite->sayText = msg;
-                }
-                sprite->sayTimer = 120;
-                std::cout << "[LOOKS] Say: " << sprite->sayText << "\n";
-                break;
+            else if (txt.find("change x by") != std::string::npos) {
+                int val = 10;
+                try {
+                    size_t p = txt.find("by ");
+                    if (p != std::string::npos) val = std::stoi(txt.substr(p + 3));
+                } catch (...) {}
+                sprite->x += val;
             }
-            case BLOCK_EVENT:
-                std::cout << "[EVENT] " << b->text << "\n";
-                break;
-            case BLOCK_CONTROL:
-                std::cout << "[CONTROL] " << b->text << "\n";
-                break;
-            default:
-                break;
+            else if (txt.find("change y by") != std::string::npos) {
+                int val = 10;
+                try {
+                    size_t p = txt.find("by ");
+                    if (p != std::string::npos) val = std::stoi(txt.substr(p + 3));
+                } catch (...) {}
+                sprite->y += val;
+            }
+            else if (txt.find("go to x:") != std::string::npos) {
+                sprite->x = STAGE_WIDTH  / 2.0f - sprite->w / 2.0f;
+                sprite->y = STAGE_HEIGHT / 2.0f - sprite->h / 2.0f;
+            }
         }
 
-        currentBlock = b->next;
-        nextRunTime  = now + delayMs;
+        else if (b->type == BLOCK_LOOKS) {
+            if (txt.find("say") != std::string::npos) {
 
-        if (!currentBlock) {
-            running = false;
-            std::cout << "[ENGINE] Script finished.\n";
+                size_t pos = txt.find("say ");
+                if (pos != std::string::npos) {
+                    std::string msg = txt.substr(pos + 4);
+
+                    size_t forPos = msg.find(" for ");
+                    if (forPos != std::string::npos) {
+                        std::string secsStr = msg.substr(forPos + 5);
+                        msg = msg.substr(0, forPos);
+                        try {
+                            int secs = std::stoi(secsStr);
+                            waitUntil = SDL_GetTicks() + secs * 1000;
+                            sprite->sayTimer = secs * 60;
+                        } catch (...) {
+                            sprite->sayTimer = 120;
+                        }
+                    } else {
+                        sprite->sayTimer = 180;
+                    }
+                    sprite->sayText = msg;
+                }
+            }
+            else if (txt == "show") { sprite->visible = true;  }
+            else if (txt == "hide") { sprite->visible = false; }
+        }
+
+        else if (b->type == BLOCK_CONTROL) {
+            if (txt.find("wait") != std::string::npos) {
+                int secs = 1;
+                try {
+                    size_t p = txt.find("wait ");
+                    if (p != std::string::npos) secs = std::stoi(txt.substr(p + 5));
+                } catch (...) {}
+                waitUntil = now + secs * 1000;
+            }
+            else if (txt == "stop all") {
+                stop();
+            }
         }
     }
 };
