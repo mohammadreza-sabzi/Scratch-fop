@@ -14,66 +14,39 @@
 
 void handle_snap(Block* dragged, std::vector<Block*>& blocks) {
     if (!dragged) return;
-
-
-    if (dragged->prev) {
-        dragged->prev->next = nullptr;
-        dragged->prev = nullptr;
-    }
-    if (dragged->next) {
-        dragged->next->prev = nullptr;
-        dragged->next = nullptr;
-    }
+    if (dragged->prev) { dragged->prev->next = nullptr; dragged->prev = nullptr; }
+    if (dragged->next) { dragged->next->prev = nullptr; dragged->next = nullptr; }
 
     for (Block* b : blocks) {
-        if (b == dragged) continue;
-        if (b->isDragging)  continue;
+        if (b == dragged || b->isDragging) continue;
+        int dx = std::abs(dragged->x - b->x);
 
-        int snapX = b->x;
-        int snapY = b->y + b->h;
-        int dx = std::abs(dragged->x - snapX);
-        int dy = std::abs(dragged->y - snapY);
-
-        if (dx < SNAP_DISTANCE && dy < SNAP_DISTANCE && b->next == nullptr) {
-            dragged->x    = b->x;
-            dragged->y    = b->y + b->h;
-            b->next       = dragged;
-            dragged->prev = b;
+        int dy1 = std::abs(dragged->y - (b->y + b->h));
+        if (dx < SNAP_DISTANCE && dy1 < SNAP_DISTANCE && b->next == nullptr) {
+            dragged->x = b->x; dragged->y = b->y + b->h;
+            b->next = dragged; dragged->prev = b;
             return;
         }
 
-        snapY = b->y - dragged->h;
-        dy    = std::abs(dragged->y - snapY);
-        if (dx < SNAP_DISTANCE && dy < SNAP_DISTANCE && b->prev == nullptr) {
-            dragged->x    = b->x;
-            dragged->y    = b->y - dragged->h;
-            dragged->next = b;
-            b->prev       = dragged;
+        int dy2 = std::abs(dragged->y - (b->y - dragged->h));
+        if (dx < SNAP_DISTANCE && dy2 < SNAP_DISTANCE && b->prev == nullptr) {
+            dragged->x = b->x; dragged->y = b->y - dragged->h;
+            dragged->next = b; b->prev = dragged;
             return;
         }
     }
 }
 
-void handle_mouse_down(SDL_Event& e,
-                        std::vector<Block*>& blocks,
-                        Block** draggedBlock)
-{
-    int mx = e.button.x;
-    int my = e.button.y;
-
+void handle_mouse_down(SDL_Event& e, std::vector<Block*>& blocks, Block** draggedBlock) {
+    int mx = e.button.x, my = e.button.y;
     for (int i = (int)blocks.size() - 1; i >= 0; i--) {
         Block* b = blocks[i];
         if (point_in_rect(mx, my, b->x, b->y, b->w, b->h)) {
-
-            if (b->prev) {
-                b->prev->next = nullptr;
-                b->prev = nullptr;
-            }
-            b->isDragging  = true;
+            if (b->prev) { b->prev->next = nullptr; b->prev = nullptr; }
+            b->isDragging = true;
             b->dragOffsetX = mx - b->x;
             b->dragOffsetY = my - b->y;
-            *draggedBlock  = b;
-
+            *draggedBlock = b;
             blocks.erase(blocks.begin() + i);
             blocks.push_back(b);
             return;
@@ -81,41 +54,27 @@ void handle_mouse_down(SDL_Event& e,
     }
 }
 
-void handle_mouse_motion(SDL_Event& e,
-                          Block** draggedBlock,
-                          Workspace& workspace)
-{
+void handle_mouse_motion(SDL_Event& e, Block** draggedBlock, Workspace&) {
     if (!*draggedBlock) return;
-    Block* b = *draggedBlock;
-    b->x = e.motion.x - b->dragOffsetX;
-    b->y = e.motion.y - b->dragOffsetY;
+    (*draggedBlock)->x = e.motion.x - (*draggedBlock)->dragOffsetX;
+    (*draggedBlock)->y = e.motion.y - (*draggedBlock)->dragOffsetY;
 }
 
-
-void handle_mouse_up(Block** draggedBlock,
-                      std::vector<Block*>& blocks,
-                      Workspace& workspace)
-{
+void handle_mouse_up(Block** draggedBlock, std::vector<Block*>& blocks, Workspace& workspace) {
     if (!*draggedBlock) return;
     Block* b = *draggedBlock;
     b->isDragging = false;
 
-
-    bool inWS = point_in_rect(b->x + b->w / 2, b->y + b->h / 2,
-        workspace.x, workspace.y,
-        workspace.w, workspace.h);
-
+    bool inWS = point_in_rect(b->x + b->w/2, b->y + b->h/2,
+                               workspace.x, workspace.y, workspace.w, workspace.h);
     if (!inWS) {
-        blocks.erase(std::remove(blocks.begin(), blocks.end(), b),
-                     blocks.end());
-
-        if (b->prev) { b->prev->next = nullptr; }
-        if (b->next) { b->next->prev = nullptr; }
+        blocks.erase(std::remove(blocks.begin(), blocks.end(), b), blocks.end());
+        if (b->prev) b->prev->next = nullptr;
+        if (b->next) b->next->prev = nullptr;
         delete b;
         *draggedBlock = nullptr;
         return;
     }
-
     handle_snap(b, blocks);
     *draggedBlock = nullptr;
 }
