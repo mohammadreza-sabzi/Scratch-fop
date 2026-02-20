@@ -21,6 +21,7 @@ void handle_snap(Block* dragged, std::vector<Block*>& blocks) {
         if (b == dragged || b->isDragging) continue;
         int dx = std::abs(dragged->x - b->x);
 
+        // snap below b
         int dy1 = std::abs(dragged->y - (b->y + b->h));
         if (dx < SNAP_DISTANCE && dy1 < SNAP_DISTANCE && b->next == nullptr) {
             dragged->x = b->x; dragged->y = b->y + b->h;
@@ -28,6 +29,7 @@ void handle_snap(Block* dragged, std::vector<Block*>& blocks) {
             return;
         }
 
+        // snap above b
         int dy2 = std::abs(dragged->y - (b->y - dragged->h));
         if (dx < SNAP_DISTANCE && dy2 < SNAP_DISTANCE && b->prev == nullptr) {
             dragged->x = b->x; dragged->y = b->y - dragged->h;

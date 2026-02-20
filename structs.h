@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <SDL2/SDL.h>
 
 enum BlockType {
@@ -45,7 +46,7 @@ struct Sprite {
     float x = 0, y = 0;
     float direction = 90.0f;
     float scale = 1.0f;
-    int   w = 48, h = 48;
+    int   w = 96, h = 96;
     SDL_Texture* texture = nullptr;
     bool  visible = true;
     std::string sayText;
@@ -76,6 +77,23 @@ struct CostumePanel {
     int scrollOffset = 0;
     int selectedIndex = 0;
     bool visible = true;
+};
+
+// Variable definition
+struct Variable {
+    std::string name;
+    float       value = 0.0f;
+    bool        showOnStage = true;
+};
+
+// Variables panel
+struct VariablesPanel {
+    int x, y, w, h;
+    int scrollOffset = 0;
+    bool visible = true;
+    std::vector<Variable> variables;
+    bool creating = false;      // Are we in name-entry mode?
+    std::string newVarName;     // Buffer for new variable name
 };
 
 #endif

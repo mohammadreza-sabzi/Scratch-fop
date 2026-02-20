@@ -57,7 +57,8 @@ Block* check_palette_click(int mx, int my, std::vector<Block*>& blocks, Palette&
 
 void handle_category_click(int mx, int my, Palette& palette) {
     for (auto& cat : palette.categories) {
-        if (point_in_rect(mx, my, cat.iconRect.x, cat.iconRect.y, cat.iconRect.w, cat.iconRect.h)) {
+        if (point_in_rect(mx, my, cat.iconRect.x, cat.iconRect.y,
+                          cat.iconRect.w, cat.iconRect.h)) {
             palette.activeCategory = cat.type;
             palette.scrollOffset   = 0;
             break;
