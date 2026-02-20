@@ -184,7 +184,9 @@ void draw_category_bar(SDL_Renderer* r, TTF_Font* font, Palette& palette) {
 
 void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
                             Palette& palette, const std::string& activeCatName,
-                            SDL_Color activeCatColor)
+                            SDL_Color activeCatColor,
+                            bool showMakeVarBtn = false,
+                            SDL_Rect* makeVarBtnOut = nullptr)
 {
     SDL_SetRenderDrawColor(r, COLOR_BG_BLOCKLIST.r, COLOR_BG_BLOCKLIST.g,
                            COLOR_BG_BLOCKLIST.b, 255);
@@ -207,7 +209,18 @@ void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
     if (fontBig)
         draw_text(r, fontBig, activeCatName,
                   palette.blockListX+12, 12, activeCatColor);
+
+    if (showMakeVarBtn) {
+        SDL_Rect btn = {palette.blockListX + 8, 52, palette.blockListW - 16, 26};
+        SDL_SetRenderDrawColor(r, COLOR_VARIABLES.r, COLOR_VARIABLES.g, COLOR_VARIABLES.b, 255);
+        SDL_RenderFillRect(r, &btn);
+        SDL_SetRenderDrawColor(r, 180, 60, 10, 255);
+        SDL_RenderDrawRect(r, &btn);
+        if (fontBig) draw_text_centered(r, fontBig, "+ Make a Variable", btn, COLOR_TEXT_WHITE);
+        if (makeVarBtnOut) *makeVarBtnOut = btn;
+    }
 }
+
 
 
 void draw_stage(SDL_Renderer* r, Stage* stage) {

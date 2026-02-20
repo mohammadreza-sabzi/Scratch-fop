@@ -37,7 +37,8 @@ bool block_matches_category(Block* b, CategoryType cat) {
 }
 
 void layout_palette_blocks(std::vector<Block*>& blocks, Palette& palette) {
-    int y = palette.blockListY + 52 + palette.scrollOffset;
+    int startY = (palette.activeCategory == CAT_VARIABLES) ? 88 : 52;
+    int y = palette.blockListY + startY + palette.scrollOffset;
     int x = palette.blockListX + 12;
     for (Block* b : blocks) {
         if (!block_matches_category(b, palette.activeCategory)) continue;
@@ -45,6 +46,7 @@ void layout_palette_blocks(std::vector<Block*>& blocks, Palette& palette) {
         y += BLOCK_H + BLOCK_PADDING;
     }
 }
+
 
 Block* check_palette_click(int mx, int my, std::vector<Block*>& blocks, Palette& palette) {
     for (int i = (int)blocks.size() - 1; i >= 0; i--) {

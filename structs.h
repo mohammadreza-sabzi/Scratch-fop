@@ -4,7 +4,8 @@
 
 #ifndef SCRATCH_FOP_STRUCTS_H
 #define SCRATCH_FOP_STRUCTS_H
-
+using namespace std;
+#include <iostream>
 #include <string>
 #include <vector>
 #include <map>
@@ -92,8 +93,15 @@ struct VariablesPanel {
     int scrollOffset = 0;
     bool visible = true;
     std::vector<Variable> variables;
-    bool creating = false;      // Are we in name-entry mode?
-    std::string newVarName;     // Buffer for new variable name
+    bool creating = false;
+    std::string newVarName;
+};
+
+
+struct BlockToken {
+    string text;
+    bool   editable;
+    int    x, w;
 };
 
 #endif

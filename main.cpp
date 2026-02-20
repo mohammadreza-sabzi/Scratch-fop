@@ -103,16 +103,24 @@ int main(int argc, char* argv[]) {
     auto addPB = [&](BlockType t, const string& txt) {
         paletteBlocks.push_back(new Block{bid++, t, txt, 0,0,BLOCK_W,BLOCK_H,false,0,0,nullptr,nullptr});
     };
+
+    //MOTION
     addPB(BLOCK_MOTION, "move 10 steps");
     addPB(BLOCK_MOTION, "turn 15 degrees");
     addPB(BLOCK_MOTION, "turn left 15 degrees");
     addPB(BLOCK_MOTION, "go to x:0 y:0");
+    addPB(BLOCK_MOTION, "go to random position");
+    addPB(BLOCK_MOTION, "go to mouse-pointer");
+    addPB(BLOCK_MOTION, "glide 1 secs to x:0 y:0");
     addPB(BLOCK_MOTION, "point in direction 90");
+    addPB(BLOCK_MOTION, "point towards mouse-pointer");
     addPB(BLOCK_MOTION, "change x by 10");
     addPB(BLOCK_MOTION, "set x to 0");
     addPB(BLOCK_MOTION, "change y by 10");
     addPB(BLOCK_MOTION, "set y to 0");
     addPB(BLOCK_MOTION, "if on edge, bounce");
+
+    //LOOKS
     addPB(BLOCK_LOOKS, "say Hello!");
     addPB(BLOCK_LOOKS, "say Hello! for 2 secs");
     addPB(BLOCK_LOOKS, "think Hmm...");
@@ -122,34 +130,95 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_LOOKS, "switch costume to 0");
     addPB(BLOCK_LOOKS, "set size to 100");
     addPB(BLOCK_LOOKS, "change size by 10");
+
+    //SOUND
+    addPB(BLOCK_SOUND, "play sound Meow");
+    addPB(BLOCK_SOUND, "play sound Meow until done");
+    addPB(BLOCK_SOUND, "stop all sounds");
+    addPB(BLOCK_SOUND, "change volume by 10");
+    addPB(BLOCK_SOUND, "change volume by -10");
+    addPB(BLOCK_SOUND, "set volume to 100");
+    addPB(BLOCK_SOUND, "change pitch effect by 10");
+    addPB(BLOCK_SOUND, "set pitch effect to 100");
+    addPB(BLOCK_SOUND, "clear sound effects");
+
+    //EVENTS
     addPB(BLOCK_EVENT, "when flag clicked");
     addPB(BLOCK_EVENT, "when key pressed");
     addPB(BLOCK_EVENT, "when sprite clicked");
+    addPB(BLOCK_EVENT, "when backdrop switches to");
+    addPB(BLOCK_EVENT, "broadcast message");
+    addPB(BLOCK_EVENT, "broadcast message and wait");
+
+    //CONTROL
     addPB(BLOCK_CONTROL, "wait 1 secs");
     addPB(BLOCK_CONTROL, "repeat 10");
     addPB(BLOCK_CONTROL, "repeat 3");
     addPB(BLOCK_CONTROL, "forever");
     addPB(BLOCK_CONTROL, "if <> then");
+    addPB(BLOCK_CONTROL, "if <> then else");
+    addPB(BLOCK_CONTROL, "wait until <>");
     addPB(BLOCK_CONTROL, "stop all");
-    addPB(BLOCK_SOUND, "play sound");
-    addPB(BLOCK_SOUND, "stop all sounds");
+    addPB(BLOCK_CONTROL, "stop this script");
+    addPB(BLOCK_CONTROL, "stop other scripts");
+
+    //SENSING
+    addPB(BLOCK_SENSING, "ask What's your name? and wait");
+    addPB(BLOCK_SENSING, "answer");
     addPB(BLOCK_SENSING, "touching mouse-pointer?");
     addPB(BLOCK_SENSING, "touching edge?");
+    addPB(BLOCK_SENSING, "touching color?");
     addPB(BLOCK_SENSING, "key space pressed?");
+    addPB(BLOCK_SENSING, "mouse down?");
     addPB(BLOCK_SENSING, "mouse x");
     addPB(BLOCK_SENSING, "mouse y");
+    addPB(BLOCK_SENSING, "loudness");
+    addPB(BLOCK_SENSING, "timer");
+    addPB(BLOCK_SENSING, "reset timer");
+    addPB(BLOCK_SENSING, "distance to mouse-pointer");
+
+    //OPERATORS
+    addPB(BLOCK_OPERATORS, "() + ()");
+    addPB(BLOCK_OPERATORS, "() - ()");
+    addPB(BLOCK_OPERATORS, "() * ()");
+    addPB(BLOCK_OPERATORS, "() / ()");
+    addPB(BLOCK_OPERATORS, "() mod ()");
+    addPB(BLOCK_OPERATORS, "() < ()");
+    addPB(BLOCK_OPERATORS, "() > ()");
+    addPB(BLOCK_OPERATORS, "() = ()");
+    addPB(BLOCK_OPERATORS, "<> and <>");
+    addPB(BLOCK_OPERATORS, "<> or <>");
+    addPB(BLOCK_OPERATORS, "not <>");
     addPB(BLOCK_OPERATORS, "pick random 1 to 10");
     addPB(BLOCK_OPERATORS, "pick random 1 to 360");
+    addPB(BLOCK_OPERATORS, "round ()");
+    addPB(BLOCK_OPERATORS, "abs of ()");
+    addPB(BLOCK_OPERATORS, "sqrt of ()");
+    addPB(BLOCK_OPERATORS, "floor of ()");
+    addPB(BLOCK_OPERATORS, "ceiling of ()");
+    addPB(BLOCK_OPERATORS, "sin of ()");
+    addPB(BLOCK_OPERATORS, "cos of ()");
     addPB(BLOCK_OPERATORS, "join hello world");
+    addPB(BLOCK_OPERATORS, "letter 1 of hello");
+    addPB(BLOCK_OPERATORS, "length of hello");
+    addPB(BLOCK_OPERATORS, "contains hello world");
+
+    //VARIABLES
     addPB(BLOCK_VARIABLES, "set score to 0");
     addPB(BLOCK_VARIABLES, "change score by 1");
     addPB(BLOCK_VARIABLES, "show variable score");
+    addPB(BLOCK_VARIABLES, "hide variable score");
 
     VariablesPanel varsPanel;
     varsPanel.x = 0; varsPanel.y = 0;
     varsPanel.w = VAR_PANEL_W; varsPanel.h = VAR_PANEL_H;
     varsPanel.visible = true;
     varsPanel.variables.push_back({"score", 0.0f, true});
+
+    // My Blocks state
+    bool myBlocksCreating = false;
+    string newBlockName = "";
+    vector<string> customBlocks;
 
     CostumePanel costumePanel;
     costumePanel.x = COSTUME_PANEL_X;
@@ -176,12 +245,16 @@ int main(int argc, char* argv[]) {
         name = ""; col = {100,100,100,255};
     };
 
-    SDL_Rect makeVarBtn = {0,0,0,0};
+    SDL_Rect makeVarBtn    = {0, 0, 0, 0};
+    SDL_Rect makeBlockBtn  = {0, 0, 0, 0};
+    bool isVarCat   = false;
+    bool isMyBlocks = false;
 
     while (!quit) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) { quit = true; break; }
 
+            // --- ورودی دیالوگ Variable ---
             if (varsPanel.creating && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!varsPanel.newVarName.empty()) {
@@ -192,6 +265,8 @@ int main(int argc, char* argv[]) {
                         varsPanel.variables.push_back(nv);
                         addPB(BLOCK_VARIABLES, "set " + varsPanel.newVarName + " to 0");
                         addPB(BLOCK_VARIABLES, "change " + varsPanel.newVarName + " by 1");
+                        addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
+                        addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
                     }
                     varsPanel.creating = false;
                     varsPanel.newVarName = "";
@@ -210,6 +285,30 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            // --- ورودی دیالوگ My Block ---
+            if (myBlocksCreating && e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                    if (!newBlockName.empty()) {
+                        customBlocks.push_back(newBlockName);
+                        addPB(BLOCK_MYBLOCKS, newBlockName);
+                    }
+                    myBlocksCreating = false;
+                    newBlockName = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    myBlocksCreating = false;
+                    newBlockName = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !newBlockName.empty()) {
+                    newBlockName.pop_back();
+                }
+                continue;
+            }
+            if (myBlocksCreating && e.type == SDL_TEXTINPUT) {
+                newBlockName += e.text.text;
+                continue;
+            }
+
             // SCROLL
             if (e.type == SDL_MOUSEWHEEL) {
                 int mx, my;
@@ -225,7 +324,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            //MOUSE DOWN
+            // MOUSE DOWN
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
                 int mx = e.button.x, my = e.button.y;
 
@@ -237,21 +336,21 @@ int main(int argc, char* argv[]) {
                     scriptRunner.stop();
                     sprite.sayText = ""; sprite.sayTimer = 0;
                 }
-                else if (varsPanel.visible) {
-                    // Make-a-Variable button is at bottom of panel
-                    int pvx = workspace.x + workspace.w - VAR_PANEL_W - 10;
-                    int pvy = workspace.y + 10;
-                    int pvw = VAR_PANEL_W;
-                    int pvh = 34 + (int)varsPanel.variables.size() * 22 + 32 + 4;
-                    if (pvh < 70) pvh = 70;
-                    int btnY = pvy + pvh - 28;
-                    SDL_Rect mkBtn = {pvx+6, btnY, pvw-12, 22};
-                    if (point_in_rect(mx, my, mkBtn.x, mkBtn.y, mkBtn.w, mkBtn.h)) {
-                        varsPanel.creating = true;
-                        varsPanel.newVarName = "";
-                        SDL_StartTextInput();
-                        continue;
-                    }
+                else if (isVarCat && makeVarBtn.w > 0 &&
+                         point_in_rect(mx, my, makeVarBtn.x, makeVarBtn.y,
+                                       makeVarBtn.w, makeVarBtn.h)) {
+                    varsPanel.creating = true;
+                    varsPanel.newVarName = "";
+                    SDL_StartTextInput();
+                    continue;
+                }
+                else if (isMyBlocks && makeBlockBtn.w > 0 &&
+                         point_in_rect(mx, my, makeBlockBtn.x, makeBlockBtn.y,
+                                       makeBlockBtn.w, makeBlockBtn.h)) {
+                    myBlocksCreating = true;
+                    newBlockName = "";
+                    SDL_StartTextInput();
+                    continue;
                 }
 
                 if (costumePanel.visible &&
@@ -302,34 +401,46 @@ int main(int argc, char* argv[]) {
         scriptRunner.update(&sprite);
         if (sprite.sayTimer > 0) { sprite.sayTimer--; if (sprite.sayTimer == 0) sprite.sayText = ""; }
 
-        //RENDER
+        isVarCat   = (palette.activeCategory == CAT_VARIABLES);
+        isMyBlocks = (palette.activeCategory == CAT_MYBLOCKS);
+
+        // RENDER
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
-        // Header bar
         SDL_SetRenderDrawColor(renderer, COLOR_HEADER_BAR.r, COLOR_HEADER_BAR.g,
                                COLOR_HEADER_BAR.b, 255);
         SDL_Rect headerBar = {STAGE_X, 0, STAGE_WIDTH, STAGE_Y};
         SDL_RenderFillRect(renderer, &headerBar);
 
-        // Palette
         draw_category_bar(renderer, fontSmall, palette);
         string activeName; SDL_Color activeCol;
         getActiveCatInfo(activeName, activeCol);
-        draw_block_list_header(renderer, fontBig, palette, activeName, activeCol);
+
+
+        if (isVarCat) {
+            draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
+                                   true, &makeVarBtn);
+            makeBlockBtn = {0,0,0,0};
+        } else if (isMyBlocks) {
+            draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
+                                   true, &makeBlockBtn);
+            makeVarBtn = {0,0,0,0};
+        } else {
+            draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
+                                   false, nullptr);
+            makeVarBtn   = {0,0,0,0};
+            makeBlockBtn = {0,0,0,0};
+        }
+
         for (Block* b : paletteBlocks)
             if (block_matches_category(b, palette.activeCategory))
                 draw_block(renderer, fontSmall, b);
 
-        // Workspace
         draw_workspace_bg(renderer, workspace);
         for (Block* b : workspaceBlocks) draw_block(renderer, fontSmall, b);
 
-
-        draw_variables_panel(renderer, fontSmall, fontBig, varsPanel, workspace);
-
-
-        if (varsPanel.creating) {
+        auto draw_name_dialog = [&](const string& title, const string& inputText) {
             int ox = workspace.x + workspace.w/2 - 160;
             int oy = workspace.y + workspace.h/2 - 40;
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 120);
@@ -342,7 +453,7 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderDrawColor(renderer, 150, 150, 200, 255);
             SDL_RenderDrawRect(renderer, &box);
 
-            if (fontBig) draw_text(renderer, fontBig, "New Variable Name:", ox+12, oy+10, COLOR_TEXT_DARK);
+            if (fontBig) draw_text(renderer, fontBig, title, ox+12, oy+10, COLOR_TEXT_DARK);
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
             SDL_Rect field = {ox+12, oy+34, 220, 26};
@@ -350,32 +461,32 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
             SDL_RenderDrawRect(renderer, &field);
             if (fontSmall)
-                draw_text(renderer, fontSmall,
-                          varsPanel.newVarName + "|", ox+16, oy+40, COLOR_TEXT_DARK);
+                draw_text(renderer, fontSmall, inputText + "|", ox+16, oy+40, COLOR_TEXT_DARK);
 
-            SDL_SetRenderDrawColor(renderer, COLOR_VARIABLES.r, COLOR_VARIABLES.g, COLOR_VARIABLES.b, 255);
+            SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
             SDL_Rect okBtn = {ox+244, oy+34, 64, 26};
             SDL_RenderFillRect(renderer, &okBtn);
             if (fontSmall) draw_text_centered(renderer, fontSmall, "OK", okBtn, COLOR_TEXT_WHITE);
-        }
+        };
 
-        // Stage
+        if (varsPanel.creating)
+            draw_name_dialog("New Variable Name:", varsPanel.newVarName);
+        if (myBlocksCreating)
+            draw_name_dialog("Block Name:", newBlockName);
+
         draw_stage(renderer, &stage);
         draw_sprite(renderer, &sprite, &stage, fontSmall);
         draw_variable_monitors(renderer, fontSmall, varsPanel, &stage);
 
-        // Below-stage panels
         draw_costume_panel(renderer, fontSmall, fontBig, costumePanel, &sprite);
         draw_sprite_info_panel(renderer, fontSmall, fontBig, &sprite);
 
-        // Play/Stop buttons
         draw_play_stop_buttons(renderer, fontSmall, playBtn, stopBtn,
                                playTex, stopTex, scriptRunner.running);
 
         SDL_RenderPresent(renderer);
     }
 
-    // Cleanup
     for (auto b : paletteBlocks)   delete b;
     for (auto b : workspaceBlocks) delete b;
     for (auto& c : sprite.costumes) if (c.texture) SDL_DestroyTexture(c.texture);
