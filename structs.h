@@ -21,15 +21,24 @@ enum CategoryType {
     CAT_SENSING, CAT_OPERATORS, CAT_VARIABLES, CAT_MYBLOCKS
 };
 
+// ورودی قابل ویرایش داخل بلوک
+struct BlockInput {
+    string value = "0";
+    bool editing = false;
+    SDL_Rect rect = {0, 0, 0, 0};
+    int index = 0;
+};
+
 struct Block {
     int id;
     BlockType type;
-    std::string text;
+    string text;
     int x, y, w, h;
     bool isDragging;
     int dragOffsetX, dragOffsetY;
     Block* next;
     Block* prev;
+    std::vector<BlockInput> inputs;
 };
 
 struct Stage {
@@ -80,14 +89,12 @@ struct CostumePanel {
     bool visible = true;
 };
 
-// Variable definition
 struct Variable {
     std::string name;
     float       value = 0.0f;
     bool        showOnStage = true;
 };
 
-// Variables panel
 struct VariablesPanel {
     int x, y, w, h;
     int scrollOffset = 0;
@@ -96,7 +103,6 @@ struct VariablesPanel {
     bool creating = false;
     std::string newVarName;
 };
-
 
 struct BlockToken {
     string text;

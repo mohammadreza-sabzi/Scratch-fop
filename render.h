@@ -136,7 +136,54 @@ void draw_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool isGhost = fa
     SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 200);
     SDL_RenderDrawRect(r, &mainR);
 
-    if (font) draw_text(r, font, block->text, x+10, y+(h-14)/2, COLOR_TEXT_WHITE);
+    if (!block->inputs.empty() && font) {
+        const std::string& txt = block->text;
+        int inputIdx = 0;
+        int charW    = 7;
+        int cx       = x + 10;
+        int cy       = y + (h - 14) / 2;
+        std::string segment;
+
+        for (size_t i = 0; i <= txt.size(); i++) {
+            bool isInput = (i < txt.size() && txt[i] == '(' &&
+                            i+1 < txt.size() && txt[i+1] == ')');
+            bool isEnd   = (i == txt.size());
+
+            if (isInput || isEnd) {
+                if (!segment.empty()) {
+                    draw_text(r, font, segment, cx, cy, COLOR_TEXT_WHITE);
+                    int tw, th;
+                    TTF_SizeUTF8(font, segment.c_str(), &tw, &th);
+                    cx += tw;
+                    segment.clear();
+                }
+                if (isInput && inputIdx < (int)block->inputs.size()) {
+                    BlockInput& inp = block->inputs[inputIdx];
+                    int valW = std::max(20, (int)inp.value.size() * charW + 6);
+                    SDL_Rect field = {cx, cy - 1, valW, 18};
+                    inp.rect = field;
+
+                    SDL_SetRenderDrawColor(r, 255, 255, 255, isGhost ? 100 : 220);
+                    SDL_RenderFillRect(r, &field);
+                    SDL_Color borderCol = inp.editing ?
+                        SDL_Color{80, 80, 255, 255} : SDL_Color{180, 180, 180, 255};
+                    SDL_SetRenderDrawColor(r, borderCol.r, borderCol.g, borderCol.b, 255);
+                    SDL_RenderDrawRect(r, &field);
+
+                    std::string display = inp.value + (inp.editing ? "|" : "");
+                    draw_text(r, font, display, cx + 3, cy + 1, COLOR_TEXT_DARK);
+                    cx += valW + 4;
+                    inputIdx++;
+                    i++;
+                }
+            } else {
+                segment += txt[i];
+            }
+        }
+    } else if (font) {
+        draw_text(r, font, block->text, x+10, y+(h-14)/2, COLOR_TEXT_WHITE);
+    }
+
     if (isGhost) SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }
 

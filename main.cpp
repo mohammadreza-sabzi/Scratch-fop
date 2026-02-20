@@ -253,8 +253,6 @@ int main(int argc, char* argv[]) {
     while (!quit) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) { quit = true; break; }
-
-            // --- ورودی دیالوگ Variable ---
             if (varsPanel.creating && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!varsPanel.newVarName.empty()) {
@@ -285,7 +283,6 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            // --- ورودی دیالوگ My Block ---
             if (myBlocksCreating && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!newBlockName.empty()) {
