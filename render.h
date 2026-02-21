@@ -1,7 +1,6 @@
 //
 // Created by Domim on 2/18/2026.
 //
-
 #ifndef SCRATCH_FOP_RENDER_H
 #define SCRATCH_FOP_RENDER_H
 
@@ -14,7 +13,6 @@
 #include <algorithm>
 #include "structs.h"
 #include "globals.h"
-
 
 void draw_text(SDL_Renderer* r, TTF_Font* font, const std::string& text,
                int x, int y, SDL_Color color = {255,255,255,255})
@@ -92,6 +90,114 @@ void draw_rounded_rect(SDL_Renderer* r, SDL_Rect rc, int radius, SDL_Color col) 
         }
 }
 
+void draw_tab_bar(SDL_Renderer* r, TTF_Font* font,
+                  AppTab activeTab,
+                  SDL_Rect tabRects[TAB_COUNT])   // OUT – filled by this fn
+{
+    SDL_SetRenderDrawColor(r, COLOR_TAB_BG.r, COLOR_TAB_BG.g, COLOR_TAB_BG.b, 255);
+    SDL_Rect strip = {0, 0, PALETTE_WIDTH, TAB_BAR_H};
+    SDL_RenderFillRect(r, &strip);
+
+    const char* labels[TAB_COUNT] = { "Code", "Costumes", "Sounds" };
+
+    const int PADDING_X = 16;
+    int totalNeeded = 0;
+    int textWidths[TAB_COUNT];
+    for (int i = 0; i < TAB_COUNT; i++) {
+        int tw = 60, th = 0;
+        if (font) TTF_SizeUTF8(font, labels[i], &tw, &th);
+        textWidths[i] = tw;
+        totalNeeded += tw + PADDING_X * 2;
+    }
+
+    int tabW[TAB_COUNT];
+    int remaining = PALETTE_WIDTH;
+    for (int i = 0; i < TAB_COUNT; i++) {
+        tabW[i] = (i < TAB_COUNT - 1)
+                  ? (textWidths[i] + PADDING_X * 2)
+                  : remaining;
+        remaining -= tabW[i];
+    }
+    if (totalNeeded <= PALETTE_WIDTH) {
+        int evenW = PALETTE_WIDTH / TAB_COUNT;
+        for (int i = 0; i < TAB_COUNT; i++) tabW[i] = evenW;
+        tabW[TAB_COUNT-1] = PALETTE_WIDTH - evenW * (TAB_COUNT-1);
+    }
+
+    int xCursor = 0;
+    for (int i = 0; i < TAB_COUNT; i++) {
+        bool active = (i == (int)activeTab);
+        int  tw     = tabW[i];
+        int  tabTop = active ? 2 : 5;
+
+        SDL_Rect tab = {xCursor, tabTop, tw, TAB_BAR_H - tabTop};
+        tabRects[i]  = {xCursor, 0, tw, TAB_BAR_H};
+
+
+        SDL_Color bgCol = active ? COLOR_TAB_ACTIVE : COLOR_TAB_INACTIVE;
+        SDL_SetRenderDrawColor(r, bgCol.r, bgCol.g, bgCol.b, 255);
+        SDL_RenderFillRect(r, &tab);
+
+        const int R = 6;
+        SDL_Color tl = {
+            (Uint8)std::min(255, (int)bgCol.r + 20),
+            (Uint8)std::min(255, (int)bgCol.g + 20),
+            (Uint8)std::min(255, (int)bgCol.b + 20), 255
+        };
+
+        for (int dy = 0; dy <= R; dy++) {
+            int dx = (int)std::sqrt((double)(R*R - dy*dy));
+            SDL_SetRenderDrawColor(r, bgCol.r, bgCol.g, bgCol.b, 255);
+            SDL_RenderDrawLine(r,
+                tab.x, tab.y + R - dy,
+                tab.x + R - dx, tab.y + R - dy);
+
+            SDL_SetRenderDrawColor(r, COLOR_TAB_BG.r, COLOR_TAB_BG.g, COLOR_TAB_BG.b, 255);
+            SDL_RenderDrawLine(r,
+                tab.x, tab.y + R - dy,
+                tab.x + R - dx - 1, tab.y + R - dy);
+        }
+
+        SDL_SetRenderDrawColor(r, bgCol.r, bgCol.g, bgCol.b, 255);
+        SDL_Rect body1 = {tab.x + R, tab.y,     tab.w - 2*R, tab.h};
+        SDL_Rect body2 = {tab.x,     tab.y + R, tab.w,        tab.h - R};
+        SDL_RenderFillRect(r, &body1);
+        SDL_RenderFillRect(r, &body2);
+
+
+        if (!active) {
+            SDL_SetRenderDrawColor(r, 160, 130, 200, 255);
+            SDL_RenderDrawLine(r, tab.x, tab.y, tab.x + tab.w - 1, tab.y);      // top
+            SDL_RenderDrawLine(r, tab.x, tab.y, tab.x,              tab.y + tab.h); // left
+            SDL_RenderDrawLine(r, tab.x + tab.w - 1, tab.y,
+                                  tab.x + tab.w - 1, tab.y + tab.h); // right
+        } else {
+
+            SDL_SetRenderDrawColor(r, COLOR_SCRATCH_PURPLE.r,
+                                      COLOR_SCRATCH_PURPLE.g,
+                                      COLOR_SCRATCH_PURPLE.b, 255);
+            SDL_RenderDrawLine(r, tab.x, tab.y, tab.x + tab.w - 1, tab.y);
+        }
+
+
+        SDL_Color textCol = active ? COLOR_TAB_TEXT_ACT : COLOR_TAB_TEXT_INA;
+        if (font) {
+            int txtW, txtH;
+            TTF_SizeUTF8(font, labels[i], &txtW, &txtH);
+            int tx = tab.x + (tab.w - txtW) / 2;
+            int ty = tab.y + (tab.h - txtH) / 2;
+            draw_text(r, font, labels[i], tx, ty, textCol);
+        }
+
+        xCursor += tw;
+    }
+
+    SDL_SetRenderDrawColor(r, COLOR_SCRATCH_PURPLE.r,
+                              COLOR_SCRATCH_PURPLE.g,
+                              COLOR_SCRATCH_PURPLE.b, 255);
+    SDL_RenderDrawLine(r, 0, TAB_BAR_H - 1, PALETTE_WIDTH - 1, TAB_BAR_H - 1);
+}
+
 
 void draw_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool isGhost = false) {
     if (!block) return;
@@ -114,8 +220,6 @@ void draw_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool isGhost = fa
         for (int i = 0; i < 4; i++)
             SDL_RenderDrawLine(r, x+10+i, y-i, x+30-i, y-i);
     }
-
-    SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
     for (int i = 0; i < 4; i++)
         SDL_RenderDrawLine(r, x+10+i, y+h+i, x+30-i, y+h+i);
 
@@ -187,7 +291,6 @@ void draw_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool isGhost = fa
     if (isGhost) SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }
 
-
 void draw_category_bar(SDL_Renderer* r, TTF_Font* font, Palette& palette) {
     SDL_SetRenderDrawColor(r, COLOR_BG_CATBAR.r, COLOR_BG_CATBAR.g, COLOR_BG_CATBAR.b, 255);
     SDL_Rect barRect = {palette.catBarX, palette.catBarY, palette.catBarW, palette.catBarH};
@@ -228,7 +331,6 @@ void draw_category_bar(SDL_Renderer* r, TTF_Font* font, Palette& palette) {
     }
 }
 
-
 void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
                             Palette& palette, const std::string& activeCatName,
                             SDL_Color activeCatColor,
@@ -242,11 +344,11 @@ void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
     SDL_RenderFillRect(r, &listRect);
 
     SDL_SetRenderDrawColor(r, activeCatColor.r, activeCatColor.g, activeCatColor.b, 40);
-    SDL_Rect hdr = {palette.blockListX, 0, palette.blockListW, 44};
+    SDL_Rect hdr = {palette.blockListX, palette.blockListY, palette.blockListW, 44};
     SDL_RenderFillRect(r, &hdr);
 
     SDL_SetRenderDrawColor(r, activeCatColor.r, activeCatColor.g, activeCatColor.b, 255);
-    SDL_Rect accentLine = {palette.blockListX, 42, palette.blockListW, 3};
+    SDL_Rect accentLine = {palette.blockListX, palette.blockListY + 42, palette.blockListW, 3};
     SDL_RenderFillRect(r, &accentLine);
 
     SDL_SetRenderDrawColor(r, 210, 210, 210, 255);
@@ -255,10 +357,11 @@ void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
 
     if (fontBig)
         draw_text(r, fontBig, activeCatName,
-                  palette.blockListX+12, 12, activeCatColor);
+                  palette.blockListX+12, palette.blockListY + 12, activeCatColor);
 
     if (showMakeVarBtn) {
-        SDL_Rect btn = {palette.blockListX + 8, 52, palette.blockListW - 16, 26};
+        SDL_Rect btn = {palette.blockListX + 8, palette.blockListY + 52,
+                        palette.blockListW - 16, 26};
         SDL_SetRenderDrawColor(r, COLOR_VARIABLES.r, COLOR_VARIABLES.g, COLOR_VARIABLES.b, 255);
         SDL_RenderFillRect(r, &btn);
         SDL_SetRenderDrawColor(r, 180, 60, 10, 255);
@@ -268,24 +371,18 @@ void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
     }
 }
 
-
-
 void draw_stage(SDL_Renderer* r, Stage* stage) {
     if (!stage) return;
-    // subtle checkerboard background
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_Rect rc = {stage->x, stage->y, stage->w, stage->h};
     SDL_RenderFillRect(r, &rc);
-
     SDL_SetRenderDrawColor(r, 230, 230, 230, 255);
     for (int x = stage->x+20; x < stage->x+stage->w; x+=40)
         for (int y = stage->y+20; y < stage->y+stage->h; y+=40)
             SDL_RenderDrawPoint(r, x, y);
-
     SDL_SetRenderDrawColor(r, 160, 160, 160, 255);
     SDL_RenderDrawRect(r, &rc);
 }
-
 
 void draw_sprite(SDL_Renderer* r, Sprite* sprite, Stage* stage, TTF_Font* font) {
     if (!sprite || !sprite->visible) return;
@@ -336,7 +433,6 @@ void draw_sprite(SDL_Renderer* r, Sprite* sprite, Stage* stage, TTF_Font* font) 
     }
 }
 
-
 void draw_workspace_bg(SDL_Renderer* r, Workspace& ws) {
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_Rect rc = {ws.x, ws.y, ws.w, ws.h};
@@ -346,11 +442,8 @@ void draw_workspace_bg(SDL_Renderer* r, Workspace& ws) {
         for (int y = ws.y+12; y < ws.y+ws.h; y += 24)
             SDL_RenderDrawPoint(r, x, y);
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
-    SDL_Rect border = {ws.x, ws.y, ws.w, ws.h};
-    SDL_RenderDrawRect(r, &border);
+    SDL_RenderDrawRect(r, &rc);
 }
-
-
 
 void draw_play_stop_buttons(SDL_Renderer* r, TTF_Font* font,
                              SDL_Rect& playBtn, SDL_Rect& stopBtn,
@@ -382,7 +475,6 @@ void draw_play_stop_buttons(SDL_Renderer* r, TTF_Font* font,
         SDL_RenderDrawRect(r, &stopBtn);
     }
 }
-
 
 void draw_costume_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
                         CostumePanel& panel, Sprite* sprite)
@@ -444,7 +536,6 @@ void draw_costume_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     SDL_RenderSetClipRect(r, nullptr);
 }
 
-
 void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
                              Sprite* sprite)
 {
@@ -473,7 +564,6 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     };
 
     int tx = px + 10, ty = py + 38, lineH = 20;
-
     float scrX = sprite->x - STAGE_WIDTH/2.0f + sprite->w/2.0f;
     float scrY = -(sprite->y - STAGE_HEIGHT/2.0f + sprite->h/2.0f);
 
@@ -483,69 +573,13 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
         ty += lineH;
     };
 
-    drawRow("x:",     fmt(scrX));
-    drawRow("y:",     fmt(scrY));
-    drawRow("dir:",   fmt(sprite->direction) + "°");
-    drawRow("size:",  fmt(sprite->scale * 100.0f) + "%");
-    drawRow("shown:", sprite->visible ? "yes" : "no");
+    drawRow("x:",      fmt(scrX));
+    drawRow("y:",      fmt(scrY));
+    drawRow("dir:",    fmt(sprite->direction) + "°");
+    drawRow("size:",   fmt(sprite->scale * 100.0f) + "%");
+    drawRow("shown:",  sprite->visible ? "yes" : "no");
     drawRow("costume:", std::to_string(sprite->currentCostume + 1));
 }
-
-
-void draw_variables_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
-                          VariablesPanel& vp, Workspace& ws)
-{
-    if (!vp.visible) return;
-
-    int px = ws.x + ws.w - VAR_PANEL_W - 10;
-    int py = ws.y + 10;
-    int pw = VAR_PANEL_W;
-
-    int rowH  = 22;
-    int ph    = 34 + (int)vp.variables.size() * rowH + 32 + 4;
-    if (ph < 70) ph = 70;
-    if (ph > VAR_PANEL_H) ph = VAR_PANEL_H;
-
-    SDL_SetRenderDrawColor(r, 0, 0, 0, 40);
-    SDL_Rect shadow = {px+3, py+3, pw, ph};
-    SDL_RenderFillRect(r, &shadow);
-
-    SDL_SetRenderDrawColor(r, 250, 250, 255, 255);
-    SDL_Rect bg = {px, py, pw, ph};
-    SDL_RenderFillRect(r, &bg);
-    SDL_SetRenderDrawColor(r, 200, 200, 220, 255);
-    SDL_RenderDrawRect(r, &bg);
-
-    SDL_SetRenderDrawColor(r, COLOR_VARIABLES.r, COLOR_VARIABLES.g, COLOR_VARIABLES.b, 255);
-    SDL_Rect hdr = {px, py, pw, 28};
-    SDL_RenderFillRect(r, &hdr);
-    if (fontBig) draw_text(r, fontBig, "Variables", px+8, py+6, COLOR_TEXT_WHITE);
-
-    int iy = py + 34;
-    for (auto& v : vp.variables) {
-        SDL_SetRenderDrawColor(r, COLOR_VARIABLES.r, COLOR_VARIABLES.g, COLOR_VARIABLES.b, 200);
-        SDL_Rect chip = {px+6, iy+2, pw-12, rowH-4};
-        SDL_RenderFillRect(r, &chip);
-        if (font) {
-            std::ostringstream ss;
-            ss << std::fixed << std::setprecision(1) << v.value;
-            std::string display = v.name + " = " + ss.str();
-            draw_text(r, font, display, px+10, iy+4, COLOR_TEXT_WHITE);
-        }
-        iy += rowH;
-    }
-
-    int btnY = py + ph - 28;
-    SDL_SetRenderDrawColor(r, 220, 100, 40, 255);
-    SDL_Rect btn = {px+6, btnY, pw-12, 22};
-    SDL_RenderFillRect(r, &btn);
-    SDL_SetRenderDrawColor(r, 180, 70, 20, 255);
-    SDL_RenderDrawRect(r, &btn);
-    if (font) draw_text_centered(r, font, "+ Make a Variable", btn, COLOR_TEXT_WHITE);
-
-    vp.x = px; vp.y = py; vp.w = pw; vp.h = ph;
-}
-
 
 void draw_variable_monitors(SDL_Renderer* r, TTF_Font* font,
                              VariablesPanel& vp, Stage* stage)
@@ -567,9 +601,25 @@ void draw_variable_monitors(SDL_Renderer* r, TTF_Font* font,
         SDL_SetRenderDrawColor(r, 150, 70, 20, 255);
         SDL_RenderDrawRect(r, &bg2);
         draw_text(r, font, display, mx+6, my+3, COLOR_TEXT_WHITE);
-
         my += th + 10;
     }
 }
 
-#endif
+void draw_sounds_tab(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig) {
+    // Fill the left panel with a simple "coming soon" view
+    SDL_SetRenderDrawColor(r, 245, 240, 255, 255);
+    SDL_Rect bg = {0, TAB_BAR_H, PALETTE_WIDTH, SCREEN_HEIGHT - TAB_BAR_H};
+    SDL_RenderFillRect(r, &bg);
+
+    SDL_SetRenderDrawColor(r, COLOR_SOUND.r, COLOR_SOUND.g, COLOR_SOUND.b, 255);
+    SDL_Rect hdr = {0, TAB_BAR_H, PALETTE_WIDTH, 40};
+    SDL_RenderFillRect(r, &hdr);
+    if (fontBig) draw_text_centered(r, fontBig, "Sounds", hdr, COLOR_TEXT_WHITE);
+
+    if (font) {
+        draw_text(r, font, "No sounds yet.", 20, TAB_BAR_H + 60, COLOR_TEXT_DARK);
+        draw_text(r, font, "(coming soon)", 20, TAB_BAR_H + 82, {160,160,160,255});
+    }
+}
+
+#endif // SCRATCH_FOP_RENDER_H

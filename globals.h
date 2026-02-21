@@ -16,7 +16,12 @@ const int PALETTE_WIDTH = CAT_ICON_W + BLOCK_LIST_W;
 const int STAGE_WIDTH   = 480;
 const int STAGE_HEIGHT  = 360;
 const int STAGE_X       = SCREEN_WIDTH - STAGE_WIDTH;
-const int STAGE_Y       = 60;
+
+// ─── Tab Bar ───────────────────────────────────────────────────────────────
+const int TAB_BAR_H     = 38;   // height of the tab strip at the very top
+const int STAGE_Y       = 60;   // header bar height (unchanged)
+// ──────────────────────────────────────────────────────────────────────────
+
 const int WORKSPACE_X   = PALETTE_WIDTH;
 const int WORKSPACE_W   = SCREEN_WIDTH - PALETTE_WIDTH - STAGE_WIDTH;
 
@@ -56,5 +61,12 @@ const SDL_Color COLOR_TEXT_DARK    = {30,  30,  30,  255};
 const SDL_Color COLOR_TEXT_WHITE   = {255, 255, 255, 255};
 const SDL_Color COLOR_SCRATCH_PURPLE = {106, 74, 167, 255};
 const SDL_Color COLOR_HEADER_BAR   = {100, 65,  165, 255};
+
+// Tab bar colours  (matching Scratch UI)
+const SDL_Color COLOR_TAB_ACTIVE   = {255, 255, 255, 255};   // white tab
+const SDL_Color COLOR_TAB_INACTIVE = {210, 200, 230, 255};   // muted purple-grey
+const SDL_Color COLOR_TAB_BG       = {130,  90, 175, 255};   // purple strip
+const SDL_Color COLOR_TAB_TEXT_ACT = {106,  74, 167, 255};   // purple text on active
+const SDL_Color COLOR_TAB_TEXT_INA = {255, 255, 255, 255};   // white text on inactive
 
 #endif
