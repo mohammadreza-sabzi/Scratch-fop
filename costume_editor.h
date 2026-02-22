@@ -2,7 +2,6 @@
 // Created by Domim on 2/21/2026.
 //
 
-#pragma once
 #ifndef COSTUME_EDITOR_H
 #define COSTUME_EDITOR_H
 
