@@ -11,11 +11,15 @@
 #include "render.h"
 #include "engine.h"
 #include "costume_editor.h"
+#include "Audio.h"
 
 using namespace std;
 
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+    if (!audio_init()) {
+        std::cerr << "Audio init failed (continuing without audio)\n";
+    }
     IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG);
     TTF_Init();
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
@@ -83,6 +87,26 @@ int main(int argc, char* argv[]) {
     Stage stage = {STAGE_X, STAGE_Y, STAGE_WIDTH, STAGE_HEIGHT, {255,255,255,255}};
 
     Workspace workspace = {WORKSPACE_X, TAB_BAR_H, WORKSPACE_W, SCREEN_HEIGHT - TAB_BAR_H};
+    SoundsPanel soundsPanel;
+    soundsPanel.x = 0;
+    soundsPanel.y = TAB_BAR_H;
+    soundsPanel.w = PALETTE_WIDTH;
+    soundsPanel.h = SCREEN_HEIGHT - TAB_BAR_H;
+
+    auto add_sound = [&](const std::string& name, const std::string& path) {
+        SoundClip sc;
+        sc.name     = name;
+        sc.filePath = path;
+        audio_load(sc);
+        soundsPanel.sounds.push_back(sc);
+    };
+
+    add_sound("Meow",      "meow.wav");
+    add_sound("Pop",       "pop.wav");
+    add_sound("Drum Hit",  "drum.wav");
+
+    SDL_Rect soundAddBtn = {0, 0, 0, 0};
+
 
     Palette palette;
     palette.activeCategory = CAT_MOTION;
@@ -286,6 +310,68 @@ int main(int argc, char* argv[]) {
             }
 
 
+            if (activeTab == TAB_SOUNDS) {
+    if (e.type == SDL_MOUSEWHEEL) {
+        int mx2, my2; SDL_GetMouseState(&mx2, &my2);
+        if (mx2 < PALETTE_WIDTH) {
+            soundsPanel.scrollOffset += e.wheel.y * 20;
+            if (soundsPanel.scrollOffset > 0) soundsPanel.scrollOffset = 0;
+            int maxScroll = -(int)soundsPanel.sounds.size() * 60;
+            if (soundsPanel.scrollOffset < maxScroll)
+                soundsPanel.scrollOffset = maxScroll;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+
+        if (mx >= soundAddBtn.x && mx <= soundAddBtn.x + soundAddBtn.w &&
+            my >= soundAddBtn.y && my <= soundAddBtn.y + soundAddBtn.h) {
+
+            SoundClip sc;
+            sc.name     = "Sound " + std::to_string(soundsPanel.sounds.size() + 1);
+            sc.filePath = "";
+            sc.chunk    = nullptr;
+            soundsPanel.sounds.push_back(sc);
+            soundsPanel.selectedIndex = (int)soundsPanel.sounds.size() - 1;
+        }
+
+        else {
+            const int ITEM_H   = 54;
+            const int ITEM_PAD = 6;
+            const int HEADER_H = 40;
+            const int LIST_Y   = soundsPanel.y + HEADER_H + 40;
+            int relY = my - LIST_Y - soundsPanel.scrollOffset;
+            if (relY >= 0) {
+                int idx = relY / (ITEM_H + ITEM_PAD);
+                if (idx >= 0 && idx < (int)soundsPanel.sounds.size()) {
+                    int cardX  = soundsPanel.x + 6;
+                    int playX  = cardX + 74;
+                    int cardTop = LIST_Y + soundsPanel.scrollOffset
+                                + idx * (ITEM_H + ITEM_PAD);
+
+                    if (my >= cardTop && my <= cardTop + ITEM_H) {
+                        if (mx >= playX && mx <= playX + 34) {
+                            SoundClip& sc = soundsPanel.sounds[idx];
+                            if (sc.isPlaying) {
+                                audio_stop(sc);
+                            } else {
+                                for (auto& s : soundsPanel.sounds)
+                                    if (s.isPlaying) audio_stop(s);
+                                audio_play(sc);
+                                soundsPanel.selectedIndex = idx;
+                            }
+                        } else {
+                            soundsPanel.selectedIndex = idx;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
             if (activeTab == TAB_COSTUMES) {
 
                 if (e.type == SDL_MOUSEWHEEL) {
@@ -459,6 +545,49 @@ int main(int argc, char* argv[]) {
                     sprite.sayText = ""; sprite.sayTimer = 0;
                 }
             }
+
+            if (activeTab == TAB_SOUNDS) {
+    if (e.type == SDL_MOUSEWHEEL) {
+        int mx2, my2; SDL_GetMouseState(&mx2, &my2);
+        if (mx2 < PALETTE_WIDTH) {
+            soundsPanel.scrollOffset += e.wheel.y * 20;
+            if (soundsPanel.scrollOffset > 0) soundsPanel.scrollOffset = 0;
+        }
+    }
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+
+        // Click on "+ Add Sound" button
+        if (point_in_rect(mx, my, soundAddBtn.x, soundAddBtn.y,
+                          soundAddBtn.w, soundAddBtn.h)) {
+            std::string newName = "Sound " + std::to_string(soundsPanel.sounds.size() + 1);
+            soundsPanel.sounds.push_back({newName, "", 0.0f, false});
+            soundsPanel.selectedIndex = (int)soundsPanel.sounds.size() - 1;
+        }
+
+        if (mx >= soundsPanel.x + 6 && mx <= soundsPanel.x + soundsPanel.w - 6
+            && my >= soundsPanel.y + 80) {
+            const int ITEM_H  = 54;
+            const int ITEM_PAD = 6;
+            const int LIST_Y  = soundsPanel.y + 40 + 40;
+            int relY = my - LIST_Y - soundsPanel.scrollOffset;
+            int idx  = relY / (ITEM_H + ITEM_PAD);
+            if (idx >= 0 && idx < (int)soundsPanel.sounds.size()) {
+                int cardX = soundsPanel.x + 6;
+                int playX = cardX + 74;
+                if (mx >= playX && mx <= playX + 34) {
+                    for (auto& s : soundsPanel.sounds) s.isPlaying = false;
+                    soundsPanel.sounds[idx].isPlaying =
+                        (soundsPanel.selectedIndex != idx) ||
+                        !soundsPanel.sounds[idx].isPlaying;
+                } else {
+                    soundsPanel.selectedIndex = idx;
+                    soundsPanel.sounds[idx].isPlaying = false;
+                }
+            }
+        }
+    }
+}
         }
 
         if (activeTab == TAB_CODE)
@@ -564,8 +693,12 @@ int main(int argc, char* argv[]) {
             }
 
         } else if (activeTab == TAB_SOUNDS) {
-            draw_sounds_tab(renderer, fontSmall, fontBig);
+            draw_sounds_tab(renderer, fontSmall, fontBig, soundsPanel, &soundAddBtn);
             draw_workspace_bg(renderer, workspace);
+            for (Block* b : workspaceBlocks) {
+                update_block_input_rects(b);
+                draw_block(renderer, fontSmall, b);
+            }
         }
 
 
@@ -581,6 +714,7 @@ int main(int argc, char* argv[]) {
                                playTex, stopTex, scriptRunner.running);
 
         ce_render(costumeEditor, renderer, fontSmall, fontBig);
+        audio_update(soundsPanel);
 
         SDL_RenderPresent(renderer);
     }
@@ -597,6 +731,10 @@ int main(int argc, char* argv[]) {
     if (fontBig) TTF_CloseFont(fontBig);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    TTF_Quit(); IMG_Quit(); SDL_Quit();
+    TTF_Quit();
+    IMG_Quit();
+    audio_free_all(soundsPanel);
+    audio_quit();
+    SDL_Quit();
     return 0;
 }

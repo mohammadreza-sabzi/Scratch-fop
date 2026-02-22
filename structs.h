@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
 
 enum AppTab {
     TAB_CODE = 0,
@@ -113,6 +114,23 @@ struct BlockToken {
     bool        editable;
     int         x, w;
 };
+
+struct SoundClip {
+    std::string  name;
+    std::string  filePath;
+    float        durationSecs = 0.0f;
+    bool         isPlaying    = false;
+    int          channel      = -1;
+    Mix_Chunk*   chunk        = nullptr;
+};
+
+struct SoundsPanel {
+    int  x = 0, y = 0, w = 0, h = 0;
+    int  scrollOffset  = 0;
+    int  selectedIndex = -1;
+    std::vector<SoundClip> sounds;
+};
+
 
 #endif
 

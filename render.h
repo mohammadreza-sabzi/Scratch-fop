@@ -605,21 +605,128 @@ void draw_variable_monitors(SDL_Renderer* r, TTF_Font* font,
     }
 }
 
-void draw_sounds_tab(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig) {
-    // Fill the left panel with a simple "coming soon" view
-    SDL_SetRenderDrawColor(r, 245, 240, 255, 255);
-    SDL_Rect bg = {0, TAB_BAR_H, PALETTE_WIDTH, SCREEN_HEIGHT - TAB_BAR_H};
+void draw_sounds_tab(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
+                     SoundsPanel& panel,
+                     SDL_Rect addBtnOut[1])          // OUT: the "+ Add Sound" button
+{
+    const int HEADER_H  = 40;
+    const int ITEM_H    = 54;
+    const int ITEM_PAD  = 6;
+    const int PLAY_BTN_W = 34;
+    const int PLAY_BTN_H = 34;
+
+    SDL_SetRenderDrawColor(r, 248, 244, 255, 255);
+    SDL_Rect bg = {panel.x, panel.y, panel.w, panel.h};
     SDL_RenderFillRect(r, &bg);
 
+    // ── Header strip ──────────────────────────────────────────────────────
     SDL_SetRenderDrawColor(r, COLOR_SOUND.r, COLOR_SOUND.g, COLOR_SOUND.b, 255);
-    SDL_Rect hdr = {0, TAB_BAR_H, PALETTE_WIDTH, 40};
+    SDL_Rect hdr = {panel.x, panel.y, panel.w, HEADER_H};
     SDL_RenderFillRect(r, &hdr);
-    if (fontBig) draw_text_centered(r, fontBig, "Sounds", hdr, COLOR_TEXT_WHITE);
+    if (fontBig)
+        draw_text_centered(r, fontBig, "Sounds", hdr, COLOR_TEXT_WHITE);
 
-    if (font) {
-        draw_text(r, font, "No sounds yet.", 20, TAB_BAR_H + 60, COLOR_TEXT_DARK);
-        draw_text(r, font, "(coming soon)", 20, TAB_BAR_H + 82, {160,160,160,255});
+    SDL_Rect addBtn = {panel.x + 6, panel.y + HEADER_H + 6,
+                       panel.w - 12, 28};
+    SDL_SetRenderDrawColor(r, COLOR_SOUND.r, COLOR_SOUND.g, COLOR_SOUND.b, 200);
+    SDL_RenderFillRect(r, &addBtn);
+    SDL_SetRenderDrawColor(r, 160, 50, 180, 255);
+    SDL_RenderDrawRect(r, &addBtn);
+    if (font) draw_text_centered(r, font, "+ Add Sound", addBtn, COLOR_TEXT_WHITE);
+    if (addBtnOut) addBtnOut[0] = addBtn;
+
+    const int LIST_Y = panel.y + HEADER_H + 40;
+
+    if (panel.sounds.empty()) {
+        if (font) {
+            draw_text(r, font, "No sounds yet.", panel.x + 14, LIST_Y + 10, {150,120,170,255});
+            draw_text(r, font, "Click '+ Add Sound' above.", panel.x + 14, LIST_Y + 30, {180,160,200,255});
+        }
+        return;
     }
+
+    SDL_Rect clip = {panel.x, LIST_Y, panel.w, panel.h - (LIST_Y - panel.y)};
+    SDL_RenderSetClipRect(r, &clip);
+
+    int yy = LIST_Y + panel.scrollOffset;
+
+    for (int i = 0; i < (int)panel.sounds.size(); i++) {
+        SoundClip& s = panel.sounds[i];
+        int iy = yy + i * (ITEM_H + ITEM_PAD);
+        if (iy + ITEM_H < clip.y || iy > clip.y + clip.h) continue;
+
+        bool selected = (i == panel.selectedIndex);
+
+        SDL_Color cardBg = selected
+            ? SDL_Color{220, 200, 255, 255}
+            : SDL_Color{255, 255, 255, 255};
+        SDL_SetRenderDrawColor(r, cardBg.r, cardBg.g, cardBg.b, 255);
+        SDL_Rect card = {panel.x + 6, iy, panel.w - 12, ITEM_H};
+        SDL_RenderFillRect(r, &card);
+
+        SDL_SetRenderDrawColor(r,
+            selected ? 160 : 210,
+            selected ? 80  : 190,
+            selected ? 220 : 220, 255);
+        SDL_RenderDrawRect(r, &card);
+
+        SDL_Rect waveArea = {card.x + 6, card.y + 8, 60, ITEM_H - 16};
+        SDL_SetRenderDrawColor(r, 240, 235, 250, 255);
+        SDL_RenderFillRect(r, &waveArea);
+        SDL_SetRenderDrawColor(r, selected ? 160 : 190, 90, selected ? 220 : 200, 180);
+
+        int heights[] = {8, 20, 14, 26, 10, 22, 16, 12, 24, 8};
+        int barW = 5, barGap = 1;
+        int bx = waveArea.x + 2;
+        for (int b = 0; b < 10 && bx + barW <= waveArea.x + waveArea.w; b++) {
+            int bh = heights[b % 10];
+            int by = waveArea.y + (waveArea.h - bh) / 2;
+            SDL_Rect bar = {bx, by, barW, bh};
+            SDL_RenderFillRect(r, &bar);
+            bx += barW + barGap;
+        }
+        SDL_Rect playBtnR = {card.x + 74, card.y + (ITEM_H - PLAY_BTN_H) / 2,
+                             PLAY_BTN_W, PLAY_BTN_H};
+        SDL_Color pbCol = s.isPlaying
+            ? SDL_Color{220, 50, 60, 255}
+            : SDL_Color{100, 200, 120, 255};
+        SDL_SetRenderDrawColor(r, pbCol.r, pbCol.g, pbCol.b, 255);
+        SDL_RenderFillRect(r, &playBtnR);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+
+        if (s.isPlaying) {
+            SDL_Rect sq1 = {playBtnR.x + 6, playBtnR.y + 8, 8, 18};
+            SDL_Rect sq2 = {playBtnR.x + 18, playBtnR.y + 8, 8, 18};
+            SDL_RenderFillRect(r, &sq1);
+            SDL_RenderFillRect(r, &sq2);
+        } else {
+            int px = playBtnR.x + 10, py = playBtnR.y + 8, ph = 18;
+            for (int row = 0; row < ph / 2; row++)
+                SDL_RenderDrawLine(r, px + row, py + row, px + row, py + ph - row);
+        }
+
+
+        if (font) {
+            draw_text(r, font, s.name,
+                      card.x + 116, card.y + 10, COLOR_TEXT_DARK);
+            if (s.durationSecs > 0.0f) {
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(1) << s.durationSecs << "s";
+                draw_text(r, font, ss.str(),
+                          card.x + 116, card.y + 30, {140, 100, 160, 255});
+            } else {
+                draw_text(r, font, "unknown length",
+                          card.x + 116, card.y + 30, {180, 160, 200, 255});
+            }
+        }
+
+        if (font) {
+            std::string idx = std::to_string(i + 1);
+            draw_text(r, font, idx, card.x + card.w - 18, card.y + 6, {180, 150, 200, 255});
+        }
+    }
+
+    SDL_RenderSetClipRect(r, nullptr);
 }
 
 #endif // SCRATCH_FOP_RENDER_H
