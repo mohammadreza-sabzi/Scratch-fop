@@ -21,12 +21,17 @@ int main(int argc, char* argv[]) {
     TTF_Init();
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
 
-    SDL_Window*   window   = SDL_CreateWindow("Scratch",
-                              SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow("Scratch",
+                          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                          SCREEN_WIDTH, SCREEN_HEIGHT,
+                          SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1,
                               SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    // ── Logical size: محتوا همیشه با ابعاد اصلی رندر می‌شه ──────────────────
+    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 #ifdef _WIN32
     const char* fontPathR = "C:\\Windows\\Fonts\\arial.ttf";
@@ -55,14 +60,12 @@ int main(int argc, char* argv[]) {
     CostumeEditor costumeEditor;
     ce_init(costumeEditor);
 
-    // ── Tab state ──────────────────────────────────────────────────────────────
-    ActiveTab activeTab = TAB_CODE;   // ← NEW
+    ActiveTab activeTab = TAB_CODE;
 
-    // ── Toolbar icon rects (filled in draw_toolbar_icons each frame) ───────────
-    SDL_Rect gearBtn  = {0,0,0,0};
-    SDL_Rect notesBtn = {0,0,0,0};
-    SDL_Rect penBtn   = {0,0,0,0};
-    SDL_Rect bulbBtn  = {0,0,0,0};
+    SDL_Rect gearBtn     = {0,0,0,0};
+    SDL_Rect notesBtn    = {0,0,0,0};
+    SDL_Rect penBtn      = {0,0,0,0};
+    SDL_Rect bulbBtn     = {0,0,0,0};
     SDL_Rect saveIconBtn = {0,0,0,0};
     SDL_Rect loadIconBtn = {0,0,0,0};
 
@@ -129,7 +132,6 @@ int main(int argc, char* argv[]) {
         paletteBlocks.push_back(b);
     };
 
-    // (تمام addPB ها عین قبل - اینجا کپی می‌کنی)
     addPB(BLOCK_MOTION, "move 10 steps");
     addPB(BLOCK_MOTION, "turn 15 degrees");
     addPB(BLOCK_MOTION, "turn left 15 degrees");
@@ -261,12 +263,49 @@ int main(int argc, char* argv[]) {
     bool isVarCat   = false;
     bool isMyBlocks = false;
 
-    // ── save/load file path ────────────────────────────────────────────────────
     const std::string projectFile = "project.scratch";
 
+    auto toggle_fullscreen = [&]() {
+        Uint32 flags = SDL_GetWindowFlags(window);
+        if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+            SDL_SetWindowFullscreen(window, 0);
+            SDL_RestoreWindow(window);
+        } else {
+            // اگه maximize بود اول restore کن
+            if (flags & SDL_WINDOW_MAXIMIZED) {
+                SDL_RestoreWindow(window);
+            }
+            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+        }
+    };
     while (!quit) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) { quit = true; break; }
+
+            // ── جدید (درست) ──────────────────────────────────────────────────────
+            if (e.type == SDL_WINDOWEVENT) {
+                if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
+                    // از maximize مستقیم به fullscreen_desktop برو
+                    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                    // پنجره رو از حالت maximize درآر تا conflict نشه
+                    SDL_RestoreWindow(window);
+                }
+            }
+
+            if (e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_f) {
+                    toggle_fullscreen();
+                    continue;
+                }
+                if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    Uint32 flags = SDL_GetWindowFlags(window);
+                    if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+                        SDL_SetWindowFullscreen(window, 0);
+                        SDL_RestoreWindow(window);
+                        continue;
+                    }
+                }
+            }
 
             if (costumeEditor.isOpen) {
                 ce_handle_event(costumeEditor, e, renderer, &sprite);
@@ -371,10 +410,8 @@ int main(int argc, char* argv[]) {
                     SDL_StopTextInput();
                 }
 
-                // ── Tab bar click ──────────────────────────────────────────────
                 if (tab_bar_click(mx, my, activeTab)) {
                     if (activeTab == TAB_COSTUMES) {
-                        // immediately open costume editor for currently selected costume
                         int idx = costumePanel.selectedIndex;
                         if (idx < 0 || idx >= (int)sprite.costumes.size()) idx = 0;
                         if (!sprite.costumes.empty())
@@ -383,7 +420,6 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                // ── Toolbar icon clicks ────────────────────────────────────────
                 if (point_in_rect(mx, my, saveIconBtn.x, saveIconBtn.y,
                                   saveIconBtn.w, saveIconBtn.h)) {
                     save_project(projectFile, workspaceBlocks, varsPanel);
@@ -395,7 +431,6 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                // ── rest of existing clicks (unchanged) ───────────────────────
                 if (point_in_rect(mx, my, playBtn.x, playBtn.y, playBtn.w, playBtn.h)) {
                     Block* s = find_script_start(workspaceBlocks);
                     if (s) scriptRunner.start(s, &varsPanel.variables);
@@ -493,22 +528,17 @@ int main(int argc, char* argv[]) {
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
-        // 1. Purple header bar  (0 .. HEADER_H)
         SDL_SetRenderDrawColor(renderer,
             COLOR_HEADER_BAR.r, COLOR_HEADER_BAR.g, COLOR_HEADER_BAR.b, 255);
         SDL_Rect headerBar = { 0, 0, SCREEN_WIDTH, HEADER_H };
         SDL_RenderFillRect(renderer, &headerBar);
 
-        // 2. Toolbar icons  (inside header)
         draw_toolbar_icons(renderer, fontSmall,
                            gearBtn, notesBtn, penBtn, bulbBtn,
                            saveIconBtn, loadIconBtn);
 
-        // 3. Tab bar  (HEADER_H .. HEADER_H+TAB_H)
         draw_tab_bar(renderer, fontSmall, activeTab);
 
-
-        // ── Left panel: only show blocks if TAB_CODE ──────────────────────────
         if (activeTab == TAB_CODE) {
             draw_category_bar(renderer, fontSmall, palette);
             string activeName; SDL_Color activeCol;
@@ -534,7 +564,6 @@ int main(int argc, char* argv[]) {
                     draw_block(renderer, fontSmall, b);
         }
         else if (activeTab == TAB_COSTUMES) {
-            // پنل پس‌زمینه - فقط از STAGE_Y به پایین
             SDL_SetRenderDrawColor(renderer, 245, 240, 255, 255);
             SDL_Rect leftPanel = {0, STAGE_Y, PALETTE_WIDTH, SCREEN_HEIGHT - STAGE_Y};
             SDL_RenderFillRect(renderer, &leftPanel);
@@ -581,7 +610,6 @@ int main(int argc, char* argv[]) {
                           16, STAGE_Y + 50, {150,120,180,255});
         }
 
-        // ── Workspace ─────────────────────────────────────────────────────────
         draw_workspace_bg(renderer, workspace);
         for (Block* b : workspaceBlocks) {
             update_block_input_rects(b);
