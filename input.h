@@ -39,6 +39,139 @@ static bool point_in_c_else(int px, int py, Block* cb) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// آیا یک بلاک operator است (numeric یا boolean)؟
+static bool is_operator_block(Block* b) {
+    return b->type == BLOCK_OPERATORS;
+}
+
+// آیا بلاک می‌تواند در slot عددی قرار گیرد؟
+static bool can_embed_in_numeric(Block* b) {
+    if (!is_operator_block(b)) return false;
+    return !is_boolean_operator(b->text);
+}
+
+// آیا بلاک می‌تواند در slot بولین قرار گیرد؟
+static bool can_embed_in_boolean(Block* b) {
+    return is_operator_block(b) && is_boolean_operator(b->text);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// جستجو در تمام inputs یک بلاک (recursive) برای یافتن slot هدف
+// برمی‌گرداند: nullptr اگر پیدا نشد، وگرنه pointer به BlockInput
+static BlockInput* find_slot_for_drop(Block* target, Block* dragged, int mx, int my) {
+    for (auto& inp : target->inputs) {
+        if (!point_in_rect(mx, my, inp.rect.x, inp.rect.y, inp.rect.w, inp.rect.h))
+            continue;
+        // چک نوع سازگاری
+        if (inp.slotType == SLOT_BOOLEAN && can_embed_in_boolean(dragged))
+            return &inp;
+        if (inp.slotType == SLOT_NUMERIC && can_embed_in_numeric(dragged))
+            return &inp;
+    }
+    // recursive: چک embedded blocks
+    for (auto& inp : target->inputs) {
+        if (inp.embeddedBlock) {
+            BlockInput* r = find_slot_for_drop(inp.embeddedBlock, dragged, mx, my);
+            if (r) return r;
+        }
+    }
+    return nullptr;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// تلاش برای جاسازی بلاک اپراتور در یک slot
+// برمی‌گرداند true اگر موفق بود
+static bool try_embed_operator(Block* dragged, std::vector<Block*>& blocks, int mx, int my) {
+    if (!is_operator_block(dragged)) return false;
+
+    // تابع کمکی برای آپدیت rects و جستجو در یک بلاک
+    auto checkAndEmbed = [&](Block* target) -> bool {
+        if (!target || target == dragged || target->isDragging) return false;
+        // آپدیت rects تا آخرین موقعیت‌ها صحیح باشن
+        update_block_input_rects(target);
+        BlockInput* slot = find_slot_for_drop(target, dragged, mx, my);
+        if (!slot) return false;
+        // جاسازی
+        if (slot->embeddedBlock) {
+            delete slot->embeddedBlock;
+        }
+        slot->embeddedBlock = dragged;
+        slot->value = "0";
+        return true;
+    };
+
+    // بررسی همه بلاک‌های workspace (از بالا به پایین - آخرین = روی همه)
+    for (int i = (int)blocks.size() - 1; i >= 0; i--) {
+        Block* b = blocks[i];
+        if (b == dragged) continue;
+        if (checkAndEmbed(b)) return true;
+        // بررسی بلاک‌های داخل C
+        if (b->isCShaped) {
+            Block* inner = b->innerFirst;
+            while (inner) {
+                if (checkAndEmbed(inner)) return true;
+                inner = inner->next;
+            }
+            if (b->hasElse) {
+                Block* el = b->elseFirst;
+                while (el) {
+                    if (checkAndEmbed(el)) return true;
+                    el = el->next;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// جستجو برای بیرون کشیدن یک embedded block از slot‌ها
+// اگر پیدا شد، embedded block را از slot خارج می‌کند
+static Block* try_extract_embedded(std::vector<Block*>& blocks, int mx, int my) {
+
+    auto extractFrom = [&](Block* b, auto& self) -> Block* {
+        for (auto& inp : b->inputs) {
+            if (!inp.embeddedBlock) continue;
+            // چک کلیک روی embedded block
+            Block* eb = inp.embeddedBlock;
+            if (point_in_rect(mx, my, eb->x, eb->y, eb->w, eb->h)) {
+                inp.embeddedBlock = nullptr;
+                inp.value = "0";
+                return eb;
+            }
+            // بازگشتی - در embedded block هم چک کن
+            Block* found = self(eb, self);
+            if (found) return found;
+        }
+        return nullptr;
+    };
+
+    for (int i = (int)blocks.size() - 1; i >= 0; i--) {
+        Block* b = blocks[i];
+        Block* extracted = extractFrom(b, extractFrom);
+        if (extracted) return extracted;
+        // بلاک‌های داخل C
+        if (b->isCShaped) {
+            Block* inner = b->innerFirst;
+            while (inner) {
+                extracted = extractFrom(inner, extractFrom);
+                if (extracted) return extracted;
+                inner = inner->next;
+            }
+            if (b->hasElse) {
+                Block* el = b->elseFirst;
+                while (el) {
+                    extracted = extractFrom(el, extractFrom);
+                    if (extracted) return extracted;
+                    el = el->next;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // حذف بلاک از هر C-block که ممکنه داخلش باشه
 static void detach_from_c_blocks(Block* dragged, std::vector<Block*>& blocks) {
     for (Block* cb : blocks) {
@@ -244,6 +377,21 @@ static Block* find_clicked_block(int mx, int my, std::vector<Block*>& blocks) {
 void handle_mouse_down(SDL_Event& e, std::vector<Block*>& blocks, Block** draggedBlock) {
     int mx = e.button.x, my = e.button.y;
 
+    // اول چک کن آیا روی یک embedded block کلیک شده
+    Block* extracted = try_extract_embedded(blocks, mx, my);
+    if (extracted) {
+        extracted->x = mx - extracted->w / 2;
+        extracted->y = my - extracted->h / 2;
+        extracted->isDragging  = true;
+        extracted->dragOffsetX = extracted->w / 2;
+        extracted->dragOffsetY = extracted->h / 2;
+        // height بلاک را به حالت عادی برگردان
+        extracted->h = BLOCK_H;
+        blocks.push_back(extracted);
+        *draggedBlock = extracted;
+        return;
+    }
+
     Block* clicked = find_clicked_block(mx, my, blocks);
     if (!clicked) return;
 
@@ -281,6 +429,10 @@ void handle_mouse_up(Block** draggedBlock, std::vector<Block*>& blocks,
     Block* b = *draggedBlock;
     b->isDragging = false;
 
+    // موقعیت فعلی ماوس
+    int mx, my;
+    SDL_GetMouseState(&mx, &my);
+
     // اگر خارج از workspace رها شد، حذفش کن
     bool inWS = point_in_rect(b->x + b->w/2, b->y + b->h/2,
                                workspace.x, workspace.y,
@@ -295,6 +447,16 @@ void handle_mouse_up(Block** draggedBlock, std::vector<Block*>& blocks,
         return;
     }
 
+    // ── اول تلاش برای جاسازی در slot (با موقعیت ماوس) ──
+    if (is_operator_block(b)) {
+        if (try_embed_operator(b, blocks, mx, my)) {
+            // بلاک جاسازی شد — از workspace حذفش کن (الان embedded است)
+            blocks.erase(std::remove(blocks.begin(), blocks.end(), b), blocks.end());
+            *draggedBlock = nullptr;
+            return;
+        }
+    }
+
     handle_snap(b, blocks);
     *draggedBlock = nullptr;
 }
@@ -306,6 +468,7 @@ BlockInput* check_input_click(int mx, int my, std::vector<Block*>& blocks) {
     auto checkBlock = [&](Block* b) -> BlockInput* {
         if (!b || b->isDragging) return nullptr;
         for (auto& inp : b->inputs) {
+            if (inp.embeddedBlock) continue; // slot با embedded block قابل ویرایش متنی نیست
             if (inp.rect.w > 0 &&
                 point_in_rect(mx, my, inp.rect.x, inp.rect.y,
                               inp.rect.w, inp.rect.h))

@@ -73,6 +73,7 @@ int main(int argc, char* argv[]) {
     SDL_Rect bulbBtn     = {0,0,0,0};
     SDL_Rect saveIconBtn = {0,0,0,0};
     SDL_Rect loadIconBtn = {0,0,0,0};
+    SDL_Rect newIconBtn  = {0,0,0,0};   // دکمه New Project
 
     Uint32 lastCostumeClickTime = 0;
     int    lastCostumeClickIdx  = -1;
@@ -297,6 +298,10 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
     SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 38, 32};
     SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H - 4, 32, 32};
+    SDL_Rect pauseBtn= {STAGE_X + 10 + 44 + 38, STAGE_Y - TAB_H - 4, 38, 32}; // دکمه pause
+
+    // ── وضعیت confirm dialog (New Project) ────────────────────────────────
+    bool confirmNewProject = false;
 
     vector<Block*> workspaceBlocks;
     Block* draggedBlock = nullptr;
@@ -349,6 +354,17 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 if (e.key.keysym.sym == SDLK_f) {
                     toggle_fullscreen();
                     continue;
+                }
+                // ── رویداد when key pressed ──────────────────────────────────
+                if (!g_askPending && !varsPanel.creating && !myBlocksCreating
+                    && spriteInfoActiveField < 0) {
+                    std::string keyName = SDL_GetKeyName(e.key.keysym.sym);
+                    // به lowercase تبدیل کن
+                    for (auto& c : keyName) c = (char)tolower(c);
+                    Block* keyBlock = find_key_event(workspaceBlocks, keyName);
+                    if (keyBlock && keyBlock->next) {
+                        scriptRunner.start(keyBlock->next, &varsPanel.variables);
+                    }
                 }
                 if (e.key.keysym.sym == SDLK_ESCAPE) {
 
@@ -458,15 +474,21 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 if (e.key.keysym.sym == SDLK_RETURN ||
                     e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!varsPanel.newVarName.empty()) {
-                        Variable nv;
-                        nv.name = varsPanel.newVarName;
-                        nv.value = 0.0f;
-                        nv.showOnStage = true;
-                        varsPanel.variables.push_back(nv);
-                        addPB(BLOCK_VARIABLES, "set " + varsPanel.newVarName + " to 0");
-                        addPB(BLOCK_VARIABLES, "change " + varsPanel.newVarName + " by 1");
-                        addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
-                        addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
+                        // جلوگیری از نامگذاری تکراری
+                        bool isDuplicate = false;
+                        for (auto& v : varsPanel.variables)
+                            if (v.name == varsPanel.newVarName) { isDuplicate = true; break; }
+                        if (!isDuplicate) {
+                            Variable nv;
+                            nv.name = varsPanel.newVarName;
+                            nv.value = 0.0f;
+                            nv.showOnStage = true;
+                            varsPanel.variables.push_back(nv);
+                            addPB(BLOCK_VARIABLES, "set " + varsPanel.newVarName + " to 0");
+                            addPB(BLOCK_VARIABLES, "change " + varsPanel.newVarName + " by 1");
+                            addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
+                            addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
+                        }
                     }
                     varsPanel.creating   = false;
                     varsPanel.newVarName = "";
@@ -516,19 +538,23 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 if (e.key.keysym.sym == SDLK_RETURN ||
                     e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!spriteInfoEditText.empty()) {
-                        try {
-                            float val = std::stof(spriteInfoEditText);
-                            if (spriteInfoActiveField == 0)
-                                sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
-                            else if (spriteInfoActiveField == 1)
-                                sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
-                            else if (spriteInfoActiveField == 2)
-                                sprite.direction = val;
-                            else if (spriteInfoActiveField == 3) {
-                                sprite.scale = val / 100.0f;
-                                if (sprite.scale < 0.01f) sprite.scale = 0.01f;
-                            }
-                        } catch (...) {}
+                        if (spriteInfoActiveField == 4) {
+                            sprite.name = spriteInfoEditText;  // ذخیره نام
+                        } else {
+                            try {
+                                float val = std::stof(spriteInfoEditText);
+                                if (spriteInfoActiveField == 0)
+                                    sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                                else if (spriteInfoActiveField == 1)
+                                    sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                                else if (spriteInfoActiveField == 2)
+                                    sprite.direction = val;
+                                else if (spriteInfoActiveField == 3) {
+                                    sprite.scale = val / 100.0f;
+                                    if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                                }
+                            } catch (...) {}
+                        }
                     }
                     spriteInfoActiveField = -1;
                     spriteInfoEditText = "";
@@ -543,30 +569,34 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 } else if (e.key.keysym.sym == SDLK_TAB) {
                     // Tab برای رفتن به فیلد بعدی
                     if (!spriteInfoEditText.empty()) {
-                        try {
-                            float val = std::stof(spriteInfoEditText);
-                            if (spriteInfoActiveField == 0)
-                                sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
-                            else if (spriteInfoActiveField == 1)
-                                sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
-                            else if (spriteInfoActiveField == 2)
-                                sprite.direction = val;
-                            else if (spriteInfoActiveField == 3) {
-                                sprite.scale = val / 100.0f;
-                                if (sprite.scale < 0.01f) sprite.scale = 0.01f;
-                            }
-                        } catch (...) {}
+                        if (spriteInfoActiveField == 4) {
+                            sprite.name = spriteInfoEditText;
+                        } else {
+                            try {
+                                float val = std::stof(spriteInfoEditText);
+                                if (spriteInfoActiveField == 0)
+                                    sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                                else if (spriteInfoActiveField == 1)
+                                    sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                                else if (spriteInfoActiveField == 2)
+                                    sprite.direction = val;
+                                else if (spriteInfoActiveField == 3) {
+                                    sprite.scale = val / 100.0f;
+                                    if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                                }
+                            } catch (...) {}
+                        }
                     }
-                    spriteInfoActiveField = (spriteInfoActiveField + 1) % 4;
+                    spriteInfoActiveField = (spriteInfoActiveField + 1) % 5;
                     float scrX2 = sprite.x - STAGE_WIDTH/2.0f + sprite.w/2.0f;
                     float scrY2 = -(sprite.y - STAGE_HEIGHT/2.0f + sprite.h/2.0f);
                     std::ostringstream ss3;
                     ss3 << std::fixed << std::setprecision(1);
-                    if (spriteInfoActiveField == 0) ss3 << scrX2;
-                    else if (spriteInfoActiveField == 1) ss3 << scrY2;
-                    else if (spriteInfoActiveField == 2) ss3 << sprite.direction;
-                    else if (spriteInfoActiveField == 3) ss3 << sprite.scale*100.0f;
-                    spriteInfoEditText = ss3.str();
+                    if (spriteInfoActiveField == 4) spriteInfoEditText = sprite.name;
+                    else if (spriteInfoActiveField == 0) { ss3 << scrX2; spriteInfoEditText = ss3.str(); }
+                    else if (spriteInfoActiveField == 1) { ss3 << scrY2; spriteInfoEditText = ss3.str(); }
+                    else if (spriteInfoActiveField == 2) { ss3 << sprite.direction; spriteInfoEditText = ss3.str(); }
+                    else if (spriteInfoActiveField == 3) { ss3 << sprite.scale*100.0f; spriteInfoEditText = ss3.str(); }
                 }
                 continue;
             }
@@ -633,6 +663,12 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     load_project(projectFile, workspaceBlocks, varsPanel, bid);
                     continue;
                 }
+                // ── New Project با سوال سیو ────────────────────────────────
+                if (point_in_rect(mx, my, newIconBtn.x, newIconBtn.y,
+                                  newIconBtn.w, newIconBtn.h)) {
+                    confirmNewProject = true;
+                    continue;
+                }
 
                 if (activeTab == TAB_SOUNDS) {
                     if (mx >= 0 && mx < PALETTE_WIDTH && my >= STAGE_Y) {
@@ -670,16 +706,24 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     continue; // بقیه کلیک‌ها در TAB_SOUNDS ignore
                 }
 
-                // ── Play / Stop script ────────────────────────────────────────
+                // ── Play / Stop / Pause script ───────────────────────────────
                 if (point_in_rect(mx, my, playBtn.x, playBtn.y,
                                   playBtn.w, playBtn.h)) {
-                    Block* s = find_script_start(workspaceBlocks);
-                    if (s) scriptRunner.start(s, &varsPanel.variables);
+                    if (scriptRunner.paused) {
+                        scriptRunner.togglePause(); // ادامه از محل توقف
+                    } else {
+                        Block* s = find_script_start(workspaceBlocks);
+                        if (s) scriptRunner.start(s, &varsPanel.variables);
+                    }
                 }
                 else if (point_in_rect(mx, my, stopBtn.x, stopBtn.y,
                                        stopBtn.w, stopBtn.h)) {
                     scriptRunner.stop();
                     sprite.sayText = ""; sprite.sayTimer = 0;
+                }
+                else if (point_in_rect(mx, my, pauseBtn.x, pauseBtn.y,
+                                       pauseBtn.w, pauseBtn.h)) {
+                    scriptRunner.togglePause();
                 }
                 else if (isVarCat && makeVarBtn.w > 0 &&
                          point_in_rect(mx, my, makeVarBtn.x, makeVarBtn.y,
@@ -702,48 +746,57 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 {
                     int siField = sprite_info_field_at(mx, my);
                     if (siField >= 0) {
+                        // ذخیره فیلد قبلی
                         if (spriteInfoActiveField >= 0 && !spriteInfoEditText.empty()) {
-                            try {
-                                float val = std::stof(spriteInfoEditText);
-                                if (spriteInfoActiveField == 0)
-                                    sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
-                                else if (spriteInfoActiveField == 1)
-                                    sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
-                                else if (spriteInfoActiveField == 2)
-                                    sprite.direction = val;
-                                else if (spriteInfoActiveField == 3) {
-                                    sprite.scale = val / 100.0f;
-                                    if (sprite.scale < 0.01f) sprite.scale = 0.01f;
-                                }
-                            } catch (...) {}
+                            if (spriteInfoActiveField == 4) {
+                                sprite.name = spriteInfoEditText;
+                            } else {
+                                try {
+                                    float val = std::stof(spriteInfoEditText);
+                                    if (spriteInfoActiveField == 0)
+                                        sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                                    else if (spriteInfoActiveField == 1)
+                                        sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                                    else if (spriteInfoActiveField == 2)
+                                        sprite.direction = val;
+                                    else if (spriteInfoActiveField == 3) {
+                                        sprite.scale = val / 100.0f;
+                                        if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                                    }
+                                } catch (...) {}
+                            }
                         }
                         spriteInfoActiveField = siField;
                         float scrX2 = sprite.x - STAGE_WIDTH/2.0f + sprite.w/2.0f;
                         float scrY2 = -(sprite.y - STAGE_HEIGHT/2.0f + sprite.h/2.0f);
                         std::ostringstream ss2;
                         ss2 << std::fixed << std::setprecision(1);
-                        if (siField == 0) ss2 << scrX2;
-                        else if (siField == 1) ss2 << scrY2;
-                        else if (siField == 2) ss2 << sprite.direction;
-                        else if (siField == 3) ss2 << sprite.scale*100.0f;
-                        spriteInfoEditText = ss2.str();
+                        if (siField == 4)      spriteInfoEditText = sprite.name;
+                        else if (siField == 0) { ss2 << scrX2; spriteInfoEditText = ss2.str(); }
+                        else if (siField == 1) { ss2 << scrY2; spriteInfoEditText = ss2.str(); }
+                        else if (siField == 2) { ss2 << sprite.direction; spriteInfoEditText = ss2.str(); }
+                        else if (siField == 3) { ss2 << sprite.scale*100.0f; spriteInfoEditText = ss2.str(); }
                         SDL_StartTextInput();
                         continue;
                     } else if (spriteInfoActiveField >= 0) {
                         if (!spriteInfoEditText.empty()) {
-                            try {
-                                float val = std::stof(spriteInfoEditText);
-                                if (spriteInfoActiveField == 0)
-                                    sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
-                                else if (spriteInfoActiveField == 1)
-                                    sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
-                                else if (spriteInfoActiveField == 2)
-                                    sprite.direction = val;
-                                else if (spriteInfoActiveField == 3) {
-                                    sprite.scale = val / 100.0f;
-                                    if (sprite.scale < 0.01f) sprite.scale = 0.01f;
-                                }
-                            } catch (...) {}
+                            if (spriteInfoActiveField == 4) {
+                                sprite.name = spriteInfoEditText;
+                            } else {
+                                try {
+                                    float val = std::stof(spriteInfoEditText);
+                                    if (spriteInfoActiveField == 0)
+                                        sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                                    else if (spriteInfoActiveField == 1)
+                                        sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                                    else if (spriteInfoActiveField == 2)
+                                        sprite.direction = val;
+                                    else if (spriteInfoActiveField == 3) {
+                                        sprite.scale = val / 100.0f;
+                                        if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                                    }
+                                } catch (...) {}
+                            }
                         }
                         spriteInfoActiveField = -1;
                         spriteInfoEditText = "";
@@ -812,6 +865,19 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
                     handle_mouse_down(e, workspaceBlocks, &draggedBlock);
                 }
+
+                // ── کلیک روی sprite در stage (when sprite clicked) ─────────
+                if (point_in_rect(mx, my, STAGE_X, STAGE_Y, STAGE_WIDTH, STAGE_HEIGHT)) {
+                    float sx = sprite.x + STAGE_X;
+                    float sy = sprite.y + STAGE_Y;
+                    float sw = sprite.w * sprite.scale;
+                    float sh = sprite.h * sprite.scale;
+                    if (mx >= sx && mx <= sx+sw && my >= sy && my <= sy+sh) {
+                        Block* clickBlock = find_sprite_click_event(workspaceBlocks);
+                        if (clickBlock && clickBlock->next)
+                            scriptRunner.start(clickBlock->next, &varsPanel.variables);
+                    }
+                }
             }
             else if (e.type == SDL_MOUSEBUTTONUP &&
                      e.button.button == SDL_BUTTON_LEFT) {
@@ -846,7 +912,7 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
         draw_toolbar_icons(renderer, fontSmall,
                            gearBtn, notesBtn, penBtn, bulbBtn,
-                           saveIconBtn, loadIconBtn);
+                           saveIconBtn, loadIconBtn, newIconBtn);
         draw_tab_bar(renderer, fontSmall, activeTab);
 
         if (activeTab == TAB_CODE) {
@@ -995,6 +1061,81 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                                spriteInfoActiveField, spriteInfoEditText);
         draw_play_stop_buttons(renderer, fontSmall, playBtn, stopBtn,
                                playTex, stopTex, scriptRunner.running);
+
+        // ── دکمه Pause ────────────────────────────────────────────────────────
+        {
+            SDL_Color pauseCol = scriptRunner.paused
+                ? SDL_Color{220, 160, 30, 255}
+                : SDL_Color{100, 160, 220, 255};
+            SDL_SetRenderDrawColor(renderer, pauseCol.r, pauseCol.g, pauseCol.b, 255);
+            SDL_RenderFillRect(renderer, &pauseBtn);
+            SDL_SetRenderDrawColor(renderer, 60, 100, 160, 255);
+            SDL_RenderDrawRect(renderer, &pauseBtn);
+            if (fontSmall)
+                draw_text_centered(renderer, fontSmall,
+                    scriptRunner.paused ? "Cont" : "Pause",
+                    pauseBtn, COLOR_TEXT_WHITE);
+        }
+
+        // ── Confirm New Project Dialog ────────────────────────────────────────
+        if (confirmNewProject) {
+            int ox = SCREEN_WIDTH/2 - 180, oy = SCREEN_HEIGHT/2 - 60;
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 130);
+            SDL_Rect overlay2 = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+            SDL_RenderFillRect(renderer, &overlay2);
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+            SDL_SetRenderDrawColor(renderer, 250, 250, 255, 255);
+            SDL_Rect box2 = {ox, oy, 360, 120};
+            SDL_RenderFillRect(renderer, &box2);
+            SDL_SetRenderDrawColor(renderer, 150, 130, 200, 255);
+            SDL_RenderDrawRect(renderer, &box2);
+            if (fontBig)
+                draw_text(renderer, fontBig, "Save before new project?",
+                          ox+16, oy+14, COLOR_TEXT_DARK);
+            // دکمه Save & New
+            SDL_Rect btnSaveNew = {ox+14, oy+60, 100, 36};
+            SDL_SetRenderDrawColor(renderer, 60, 180, 80, 255);
+            SDL_RenderFillRect(renderer, &btnSaveNew);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, "Save & New", btnSaveNew, COLOR_TEXT_WHITE);
+            // دکمه New (بدون سیو)
+            SDL_Rect btnJustNew = {ox+126, oy+60, 100, 36};
+            SDL_SetRenderDrawColor(renderer, 220, 100, 40, 255);
+            SDL_RenderFillRect(renderer, &btnJustNew);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, "New", btnJustNew, COLOR_TEXT_WHITE);
+            // دکمه Cancel
+            SDL_Rect btnCancel2 = {ox+238, oy+60, 100, 36};
+            SDL_SetRenderDrawColor(renderer, 160, 160, 170, 255);
+            SDL_RenderFillRect(renderer, &btnCancel2);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, "Cancel", btnCancel2, COLOR_TEXT_WHITE);
+
+            // handle clicks for confirm dialog
+            int cmx, cmy;
+            Uint32 cmb = SDL_GetMouseState(&cmx, &cmy);
+            static bool prevClick = false;
+            bool curClick = (cmb & SDL_BUTTON(1));
+            if (curClick && !prevClick) {
+                if (point_in_rect(cmx, cmy, btnSaveNew.x, btnSaveNew.y, btnSaveNew.w, btnSaveNew.h)) {
+                    save_project(projectFile, workspaceBlocks, varsPanel);
+                    for (auto b : workspaceBlocks) delete b;
+                    workspaceBlocks.clear();
+                    varsPanel.variables.clear();
+                    varsPanel.variables.push_back({"score", 0.0f, true});
+                    confirmNewProject = false;
+                }
+                else if (point_in_rect(cmx, cmy, btnJustNew.x, btnJustNew.y, btnJustNew.w, btnJustNew.h)) {
+                    for (auto b : workspaceBlocks) delete b;
+                    workspaceBlocks.clear();
+                    varsPanel.variables.clear();
+                    varsPanel.variables.push_back({"score", 0.0f, true});
+                    confirmNewProject = false;
+                }
+                else if (point_in_rect(cmx, cmy, btnCancel2.x, btnCancel2.y, btnCancel2.w, btnCancel2.h)) {
+                    confirmNewProject = false;
+                }
+            }
+            prevClick = curClick;
+        }
 
         ce_render(costumeEditor, renderer, fontSmall, fontBig);
 

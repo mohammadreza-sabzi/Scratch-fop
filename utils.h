@@ -38,12 +38,49 @@ bool has_else_section(const std::string& txt) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// آیا بلاک اپراتور خروجی boolean دارد؟
+bool is_boolean_operator(const std::string& txt) {
+    return txt.find("() < ()") != std::string::npos
+        || txt.find("() > ()") != std::string::npos
+        || txt.find("() = ()") != std::string::npos
+        || txt.find("<> and <>") != std::string::npos
+        || txt.find("<> or <>") != std::string::npos
+        || txt.find("not <>") != std::string::npos;
+}
+
+// آیا بلاک اپراتور خروجی numeric دارد؟
+bool is_numeric_operator(const std::string& txt) {
+    if (txt.find("BLOCK_OPERATORS") != std::string::npos) return false;
+    return (txt.find("() + ()") != std::string::npos
+         || txt.find("() - ()") != std::string::npos
+         || txt.find("() * ()") != std::string::npos
+         || txt.find("() / ()") != std::string::npos
+         || txt.find("() mod ()") != std::string::npos
+         || txt.find("pick random") != std::string::npos
+         || txt.find("round ()") != std::string::npos
+         || txt.find("abs of ()") != std::string::npos
+         || txt.find("sqrt of ()") != std::string::npos
+         || txt.find("floor of ()") != std::string::npos
+         || txt.find("ceiling of ()") != std::string::npos
+         || txt.find("sin of ()") != std::string::npos
+         || txt.find("cos of ()") != std::string::npos
+         || txt.find("tan of ()") != std::string::npos
+         || txt.find("join () ()") != std::string::npos
+         || txt.find("length of ()") != std::string::npos
+         || txt.find("letter () of ()") != std::string::npos);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// محاسبه عرض یک بلاک embedded
+int embedded_block_width(Block* b);
+
 // محاسبه عرض ایده‌آل بلاک بر اساس طول متن + inputها
 int compute_block_width(Block* b) {
     const std::string& txt = b->text;
     const int CHAR_W   = 7;
     const int INPUT_W_PER_CHAR = 8;
     const int INPUT_MIN_W = 30;
+    const int BOOL_SLOT_W = 40;  // عرض slot بولین <>
     const int PADDING  = 24;
 
     int textLen = 0;
@@ -52,17 +89,35 @@ int compute_block_width(Block* b) {
         if (txt[i] == '(' && i + 1 < txt.size() && txt[i+1] == ')') {
             int vw = INPUT_MIN_W;
             if (inputIdx < (int)b->inputs.size()) {
-                int chars = (int)b->inputs[inputIdx].value.size();
-                vw = std::max(INPUT_MIN_W, chars * INPUT_W_PER_CHAR + 8);
+                if (b->inputs[inputIdx].embeddedBlock) {
+                    vw = embedded_block_width(b->inputs[inputIdx].embeddedBlock) + 4;
+                } else {
+                    int chars = (int)b->inputs[inputIdx].value.size();
+                    vw = std::max(INPUT_MIN_W, chars * INPUT_W_PER_CHAR + 8);
+                }
             }
             textLen += vw + 4;
             inputIdx++;
             i++; // skip ')'
+        } else if (txt[i] == '<' && i + 1 < txt.size() && txt[i+1] == '>') {
+            int vw = BOOL_SLOT_W;
+            if (inputIdx < (int)b->inputs.size() && b->inputs[inputIdx].embeddedBlock) {
+                vw = embedded_block_width(b->inputs[inputIdx].embeddedBlock) + 4;
+            }
+            textLen += vw + 4;
+            inputIdx++;
+            i++; // skip '>'
         } else {
             textLen += CHAR_W;
         }
     }
     return std::max(BLOCK_W, textLen + PADDING);
+}
+
+// محاسبه عرض یک بلاک embedded (خود بلاک embedded هم ممکنه slot داشته باشه)
+int embedded_block_width(Block* b) {
+    if (!b) return 30;
+    return compute_block_width(b);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -115,6 +170,17 @@ void init_block_inputs(Block* b) {
             inp.value   = default_input_val(txt, idx);
             inp.editing = false;
             inp.index   = idx++;
+            inp.slotType = SLOT_NUMERIC;
+            inp.embeddedBlock = nullptr;
+            b->inputs.push_back(inp);
+            i++;
+        } else if (txt[i] == '<' && i + 1 < txt.size() && txt[i+1] == '>') {
+            BlockInput inp;
+            inp.value   = "0";
+            inp.editing = false;
+            inp.index   = idx++;
+            inp.slotType = SLOT_BOOLEAN;
+            inp.embeddedBlock = nullptr;
             b->inputs.push_back(inp);
             i++;
         }
@@ -127,6 +193,25 @@ void init_block_inputs(Block* b) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+Block* clone_block(Block* src);  // forward decl
+
+// deep clone یک embedded block
+static Block* clone_embedded(Block* src) {
+    if (!src) return nullptr;
+    Block* nb = new Block(*src);
+    nb->next = nullptr; nb->prev = nullptr;
+    nb->innerFirst = nullptr; nb->innerLast = nullptr;
+    nb->elseFirst = nullptr;
+    nb->isDragging = false;
+    for (auto& inp : nb->inputs) {
+        inp.editing = false;
+        if (inp.embeddedBlock) {
+            inp.embeddedBlock = clone_embedded(inp.embeddedBlock);
+        }
+    }
+    return nb;
+}
+
 Block* clone_block(Block* src) {
     Block* nb = new Block(*src);
     nb->next       = nullptr;
@@ -135,7 +220,12 @@ Block* clone_block(Block* src) {
     nb->innerLast  = nullptr;
     nb->elseFirst  = nullptr;
     nb->isDragging = false;
-    for (auto& inp : nb->inputs) inp.editing = false;
+    for (auto& inp : nb->inputs) {
+        inp.editing = false;
+        if (inp.embeddedBlock) {
+            inp.embeddedBlock = clone_embedded(inp.embeddedBlock);
+        }
+    }
     return nb;
 }
 
@@ -255,14 +345,49 @@ void update_block_input_rects(Block* b) {
     const std::string& txt = b->text;
     int inputIdx = 0;
     const int CHAR_W = 7;
+    const int BOOL_SLOT_W = 40;
     int xCursor  = b->x + 10;
     int yCenter  = b->y + (b->h - 18) / 2;
 
     for (size_t i = 0; i < txt.size() && inputIdx < (int)b->inputs.size(); i++) {
         if (txt[i] == '(' && i + 1 < txt.size() && txt[i+1] == ')') {
-            const std::string& val = b->inputs[inputIdx].value;
-            int valW = std::max(30, (int)val.size() * 8 + 8);
-            b->inputs[inputIdx].rect = {xCursor, yCenter, valW, 18};
+            BlockInput& inp = b->inputs[inputIdx];
+            int valW;
+            if (inp.embeddedBlock) {
+                valW = embedded_block_width(inp.embeddedBlock) + 4;
+            } else {
+                const std::string& val = inp.value;
+                valW = std::max(30, (int)val.size() * 8 + 8);
+            }
+            inp.rect = {xCursor, yCenter - 1, valW, 18};
+            // update embedded block position to match slot
+            if (inp.embeddedBlock) {
+                inp.embeddedBlock->x = xCursor + 2;
+                inp.embeddedBlock->y = yCenter - 1;
+                inp.embeddedBlock->h = 18;
+                inp.embeddedBlock->w = valW - 4;
+                update_block_input_rects(inp.embeddedBlock);
+            }
+            xCursor += valW + 4;
+            inputIdx++;
+            i++;
+        } else if (txt[i] == '<' && i + 1 < txt.size() && txt[i+1] == '>') {
+            BlockInput& inp = b->inputs[inputIdx];
+            int valW;
+            if (inp.embeddedBlock) {
+                valW = embedded_block_width(inp.embeddedBlock) + 4;
+            } else {
+                valW = BOOL_SLOT_W;
+            }
+            inp.rect = {xCursor, yCenter - 2, valW, 20};
+            // update embedded block position
+            if (inp.embeddedBlock) {
+                inp.embeddedBlock->x = xCursor + 2;
+                inp.embeddedBlock->y = yCenter - 2;
+                inp.embeddedBlock->h = 20;
+                inp.embeddedBlock->w = valW - 4;
+                update_block_input_rects(inp.embeddedBlock);
+            }
             xCursor += valW + 4;
             inputIdx++;
             i++;

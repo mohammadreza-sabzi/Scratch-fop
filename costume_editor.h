@@ -267,6 +267,46 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
             return true;
         }
 
+        // ── Flip H button ───────────────────────────────────────────────────
+        SDL_Rect flipHBtn = {wx + CE_SIDEBAR_W + 12, wy + CE_H - 48, 72, 32};
+        if (mx >= flipHBtn.x && mx <= flipHBtn.x+flipHBtn.w &&
+            my >= flipHBtn.y && my <= flipHBtn.y+flipHBtn.h) {
+            if (ce.canvasSurf) {
+                ce_push_undo(ce);
+                SDL_LockSurface(ce.canvasSurf);
+                Uint32* px2 = (Uint32*)ce.canvasSurf->pixels;
+                for (int row2 = 0; row2 < ce.canvasH; row2++)
+                    for (int col2 = 0; col2 < ce.canvasW/2; col2++) {
+                        int a = row2*ce.canvasW + col2;
+                        int b = row2*ce.canvasW + (ce.canvasW-1-col2);
+                        std::swap(px2[a], px2[b]);
+                    }
+                SDL_UnlockSurface(ce.canvasSurf);
+                ce_apply_to_texture(ce, r);
+            }
+            return true;
+        }
+
+        // ── Flip V button ───────────────────────────────────────────────────
+        SDL_Rect flipVBtn = {wx + CE_SIDEBAR_W + 12 + 76, wy + CE_H - 48, 72, 32};
+        if (mx >= flipVBtn.x && mx <= flipVBtn.x+flipVBtn.w &&
+            my >= flipVBtn.y && my <= flipVBtn.y+flipVBtn.h) {
+            if (ce.canvasSurf) {
+                ce_push_undo(ce);
+                SDL_LockSurface(ce.canvasSurf);
+                Uint32* px2 = (Uint32*)ce.canvasSurf->pixels;
+                for (int row2 = 0; row2 < ce.canvasH/2; row2++)
+                    for (int col2 = 0; col2 < ce.canvasW; col2++) {
+                        int a = row2*ce.canvasW + col2;
+                        int b = (ce.canvasH-1-row2)*ce.canvasW + col2;
+                        std::swap(px2[a], px2[b]);
+                    }
+                SDL_UnlockSurface(ce.canvasSurf);
+                ce_apply_to_texture(ce, r);
+            }
+            return true;
+        }
+
         if (mx >= canvasRect.x && mx <= canvasRect.x + canvasRect.w &&
             my >= canvasRect.y && my <= canvasRect.y + canvasRect.h) {
             int cx, cy; toCanvasXY(mx, my, cx, cy);
@@ -514,6 +554,17 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
     SDL_SetRenderDrawColor(r, COLOR_LOOKS.r, COLOR_LOOKS.g, COLOR_LOOKS.b, 255);
     SDL_RenderFillRect(r, &saveBtn);
     if (font) draw_text_centered(r, font, "Save", saveBtn, COLOR_TEXT_WHITE);
+
+    // ── Flip buttons ───────────────────────────────────────────────────────────
+    SDL_Rect flipHBtn = {canvasRect.x, wy + CE_H - 48, 72, 32};
+    SDL_Rect flipVBtn = {canvasRect.x + 76, wy + CE_H - 48, 72, 32};
+    SDL_SetRenderDrawColor(r, 80, 140, 200, 255);
+    SDL_RenderFillRect(r, &flipHBtn);
+    SDL_RenderFillRect(r, &flipVBtn);
+    if (font) {
+        draw_text_centered(r, font, "Flip H", flipHBtn, COLOR_TEXT_WHITE);
+        draw_text_centered(r, font, "Flip V", flipVBtn, COLOR_TEXT_WHITE);
+    }
 
     // ── Info bar ───────────────────────────────────────────────────────────────
     if (font) {

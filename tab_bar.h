@@ -98,12 +98,14 @@ inline void draw_tab_bar(SDL_Renderer* r, TTF_Font* font, ActiveTab active)
 inline void draw_toolbar_icons(SDL_Renderer* r, TTF_Font* font,
                                 SDL_Rect& gearBtn,  SDL_Rect& notesBtn,
                                 SDL_Rect& penBtn,   SDL_Rect& bulbBtn,
-                                SDL_Rect& saveBtn,  SDL_Rect& loadBtn)
+                                SDL_Rect& saveBtn,  SDL_Rect& loadBtn,
+                                SDL_Rect& newBtn)
 {
     const int by = ICON_BTN_Y;
 
-    saveBtn = { 8,          by, 56, ICON_BTN_SIZE };
-    loadBtn = { 8 + 56 + 8, by, 56, ICON_BTN_SIZE };
+    newBtn  = { 8,                  by, 46, ICON_BTN_SIZE };
+    saveBtn = { 8 + 46 + 6,         by, 56, ICON_BTN_SIZE };
+    loadBtn = { 8 + 46 + 6 + 56 + 6,by, 56, ICON_BTN_SIZE };
 
     int bx = STAGE_X - 12 - ICON_BTN_SIZE;
     bulbBtn  = { bx, by, ICON_BTN_SIZE, ICON_BTN_SIZE }; bx -= ICON_BTN_SIZE + 8;
@@ -113,6 +115,7 @@ inline void draw_toolbar_icons(SDL_Renderer* r, TTF_Font* font,
 
     struct BtnDef { SDL_Rect& rect; const char* sym; SDL_Color col; };
     BtnDef defs[] = {
+        { newBtn,   "New",  { 220, 100,  40, 255 } },
         { saveBtn,  "Save", {  60, 180,  80, 255 } },
         { loadBtn,  "Load", {  60, 140, 220, 255 } },
         { gearBtn,  "\xE2\x9A\x99", { 130,  90, 200, 255 } },

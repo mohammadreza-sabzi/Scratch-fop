@@ -31,19 +31,100 @@ static std::string g_askQuestion    = "";
 // timer
 static Uint32 g_timerStart = 0;
 
+// ─── forward declaration ──────────────────────────────────────────────────────
+static float eval_embedded_numeric(Block* b);
+static bool  eval_embedded_boolean(Block* b);
+static std::string float_to_str(float v);
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 static float get_input_val(Block* b, int idx, float fallback = 0.0f) {
     if (idx < (int)b->inputs.size()) {
+        // اگر بلاک embedded دارد، آن را ارزیابی کن
+        if (b->inputs[idx].embeddedBlock) {
+            return eval_embedded_numeric(b->inputs[idx].embeddedBlock);
+        }
         try { return std::stof(b->inputs[idx].value); }
         catch (...) {}
     }
     return fallback;
 }
 
+static bool get_input_bool(Block* b, int idx) {
+    if (idx < (int)b->inputs.size()) {
+        if (b->inputs[idx].embeddedBlock) {
+            return eval_embedded_boolean(b->inputs[idx].embeddedBlock);
+        }
+        float val = 0;
+        try { val = std::stof(b->inputs[idx].value); } catch (...) {}
+        return val != 0.0f;
+    }
+    return false;
+}
+
+// ارزیابی یک بلاک اپراتور numeric به صورت بازگشتی
+static float eval_embedded_numeric(Block* b) {
+    if (!b) return 0.0f;
+    const std::string& txt = b->text;
+    float a = get_input_val(b, 0, 0.0f);
+    float c = get_input_val(b, 1, 0.0f);
+
+    if (txt.find("() + ()") != std::string::npos) return a + c;
+    if (txt.find("() - ()") != std::string::npos) return a - c;
+    if (txt.find("() * ()") != std::string::npos) return a * c;
+    if (txt.find("() / ()") != std::string::npos) return (c != 0) ? a / c : 0;
+    if (txt.find("() mod ()") != std::string::npos) return (c != 0) ? std::fmod(a, c) : 0;
+    if (txt.find("round ()") != std::string::npos) return std::round(a);
+    if (txt.find("abs of ()") != std::string::npos) return std::abs(a);
+    if (txt.find("sqrt of ()") != std::string::npos) return (a >= 0) ? std::sqrt(a) : 0;
+    if (txt.find("floor of ()") != std::string::npos) return std::floor(a);
+    if (txt.find("ceiling of ()") != std::string::npos) return std::ceil(a);
+    if (txt.find("sin of ()") != std::string::npos) return (float)std::sin(a * M_PI / 180.0);
+    if (txt.find("cos of ()") != std::string::npos) return (float)std::cos(a * M_PI / 180.0);
+    if (txt.find("tan of ()") != std::string::npos) return (float)std::tan(a * M_PI / 180.0);
+    if (txt.find("pick random") != std::string::npos) {
+        int lo = (int)a, hi = (int)c;
+        if (hi < lo) std::swap(lo, hi);
+        return (float)(lo + rand() % (hi - lo + 1));
+    }
+    // timer reporter
+    if (txt == "timer" || txt.find("timer") != std::string::npos)
+        return (float)(SDL_GetTicks() - g_timerStart) / 1000.0f;
+    // boolean operators که در numeric context استفاده شده‌اند (1 یا 0)
+    if (txt.find("() < ()") != std::string::npos) return (a < c) ? 1.0f : 0.0f;
+    if (txt.find("() > ()") != std::string::npos) return (a > c) ? 1.0f : 0.0f;
+    if (txt.find("() = ()") != std::string::npos) return (a == c) ? 1.0f : 0.0f;
+    if (txt.find("<> and <>") != std::string::npos) return (get_input_bool(b,0) && get_input_bool(b,1)) ? 1.0f : 0.0f;
+    if (txt.find("<> or <>") != std::string::npos)  return (get_input_bool(b,0) || get_input_bool(b,1)) ? 1.0f : 0.0f;
+    if (txt.find("not <>") != std::string::npos)    return (!get_input_bool(b,0)) ? 1.0f : 0.0f;
+    return 0.0f;
+}
+
+// ارزیابی یک بلاک اپراتور boolean به صورت بازگشتی
+static bool eval_embedded_boolean(Block* b) {
+    if (!b) return false;
+    const std::string& txt = b->text;
+    float a = get_input_val(b, 0, 0.0f);
+    float c = get_input_val(b, 1, 0.0f);
+
+    if (txt.find("() < ()") != std::string::npos) return a < c;
+    if (txt.find("() > ()") != std::string::npos) return a > c;
+    if (txt.find("() = ()") != std::string::npos) return a == c;
+    if (txt.find("<> and <>") != std::string::npos) return get_input_bool(b,0) && get_input_bool(b,1);
+    if (txt.find("<> or <>") != std::string::npos)  return get_input_bool(b,0) || get_input_bool(b,1);
+    if (txt.find("not <>") != std::string::npos)    return !get_input_bool(b,0);
+    // numeric در boolean context
+    return eval_embedded_numeric(b) != 0.0f;
+}
+
 static std::string get_input_str(Block* b, int idx,
                                   const std::string& fallback = "") {
-    if (idx < (int)b->inputs.size())
+    if (idx < (int)b->inputs.size()) {
+        if (b->inputs[idx].embeddedBlock) {
+            // برای embedded block، نتیجه عددی را به string تبدیل کن
+            return float_to_str(eval_embedded_numeric(b->inputs[idx].embeddedBlock));
+        }
         return b->inputs[idx].value;
+    }
     return fallback;
 }
 
@@ -94,6 +175,7 @@ struct LoopFrame {
 // ─── ScriptRunner ─────────────────────────────────────────────────────────────
 struct ScriptRunner {
     bool   running   = false;
+    bool   paused    = false;   // توقف موقت
     Block* current   = nullptr;
     Uint32 waitUntil = 0;
     bool   waiting   = false;
@@ -105,7 +187,7 @@ struct ScriptRunner {
     Sprite* askSprite = nullptr;
 
     void start(Block* first, std::vector<Variable>* varList = nullptr) {
-        running = true; current = first;
+        running = true; paused = false; current = first;
         waitUntil = 0; waiting = false; saySilent = false;
         loopStack.clear();
         vars = varList;
@@ -116,10 +198,16 @@ struct ScriptRunner {
     }
 
     void stop() {
-        running = false; current = nullptr;
+        running = false; paused = false; current = nullptr;
         waiting = false; saySilent = false;
         loopStack.clear();
         g_askPending = false;
+    }
+
+    // توقف موقت / ادامه
+    void togglePause() {
+        if (!running) return;
+        paused = !paused;
     }
 
     void syncVarsBack() {
@@ -131,7 +219,7 @@ struct ScriptRunner {
     }
 
     void update(Sprite* sprite) {
-        if (!running || !sprite) return;
+        if (!running || paused || !sprite) return;
         askSprite = sprite;
 
         // اگر ask در انتظار جواب است، صبر کن
@@ -159,9 +247,13 @@ struct ScriptRunner {
     }
 
     // ─── ارزیابی شرط (برای if / wait until) ──────────────────────────────
-    // فعلاً: input[0] != 0 → true
     bool eval_condition(Block* b) {
         if (b->inputs.empty()) return false;
+        // اگر slot بولین با بلاک embedded دارد
+        if (b->inputs[0].embeddedBlock) {
+            return eval_embedded_boolean(b->inputs[0].embeddedBlock);
+        }
+        // اگر مقدار متنی دارد
         float val = 0;
         try { val = std::stof(b->inputs[0].value); } catch (...) {}
         return val != 0.0f;
@@ -519,15 +611,20 @@ struct ScriptRunner {
                 g_operatorResultText = float_to_str(a)+" = "+float_to_str(c)+" → "+(result?"true":"false");
             }
             else if (txt.find("and") != std::string::npos) {
-                result = (a != 0 && c != 0) ? 1 : 0;
-                g_operatorResultText = std::string(a?"true":"false") + " AND " + std::string(c?"true":"false") + " → " + std::string(result?"true":"false");            }
+                bool ba = get_input_bool(b, 0);
+                bool bc = get_input_bool(b, 1);
+                result = (ba && bc) ? 1 : 0;
+                g_operatorResultText = std::string(ba?"true":"false") + " AND " + std::string(bc?"true":"false") + " → " + std::string(result?"true":"false");            }
             else if (txt.find("or") != std::string::npos) {
-                result = (a != 0 || c != 0) ? 1 : 0;
-                g_operatorResultText = std::string(a?"true":"false") + " OR " + std::string(c?"true":"false") + " → " + std::string(result?"true":"false");
+                bool ba = get_input_bool(b, 0);
+                bool bc = get_input_bool(b, 1);
+                result = (ba || bc) ? 1 : 0;
+                g_operatorResultText = std::string(ba?"true":"false") + " OR " + std::string(bc?"true":"false") + " → " + std::string(result?"true":"false");
             }
             else if (txt.find("not <>") != std::string::npos) {
-                result = (a == 0) ? 1 : 0;
-                g_operatorResultText = std::string("NOT ") + std::string(a?"true":"false") + " → " + std::string(result?"true":"false");
+                bool ba = get_input_bool(b, 0);
+                result = (!ba) ? 1 : 0;
+                g_operatorResultText = std::string("NOT ") + std::string(ba?"true":"false") + " → " + std::string(result?"true":"false");
             }
             else if (txt.find("round ()") != std::string::npos) {
                 result = std::round(a);
@@ -673,6 +770,27 @@ Block* find_script_start(std::vector<Block*>& blocks) {
             return b;
     for (Block* b : blocks)
         if (b->prev == nullptr) return b;
+    return nullptr;
+}
+
+// پیدا کردن بلاک‌های رویدادی برای کلید خاص
+Block* find_key_event(std::vector<Block*>& blocks, const std::string& keyName) {
+    for (Block* b : blocks)
+        if (b->type == BLOCK_EVENT && b->prev == nullptr && b->next != nullptr &&
+            b->text.find("when key pressed") != std::string::npos) {
+            // اگر ورودی دارد، کلید رو چک کن
+            if (!b->inputs.empty() && b->inputs[0].value == keyName) return b;
+            if (b->inputs.empty()) return b; // هر کلیدی
+        }
+    return nullptr;
+}
+
+// پیدا کردن بلاک رویداد کلیک روی sprite
+Block* find_sprite_click_event(std::vector<Block*>& blocks) {
+    for (Block* b : blocks)
+        if (b->type == BLOCK_EVENT && b->prev == nullptr && b->next != nullptr &&
+            b->text.find("when sprite clicked") != std::string::npos)
+            return b;
     return nullptr;
 }
 

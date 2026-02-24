@@ -18,12 +18,19 @@ enum CategoryType {
     CAT_SENSING, CAT_OPERATORS, CAT_VARIABLES, CAT_MYBLOCKS
 };
 
+struct Block; // forward declaration
+
+// نوع slot: numeric () یا boolean <>
+enum SlotType { SLOT_NUMERIC, SLOT_BOOLEAN };
+
 // ورودی قابل ویرایش داخل بلوک
 struct BlockInput {
     string value = "0";
     bool editing = false;
     SDL_Rect rect = {0, 0, 0, 0};
     int index = 0;
+    SlotType slotType = SLOT_NUMERIC;   // نوع slot
+    Block* embeddedBlock = nullptr;      // بلاک اپراتور جاسازی‌شده
 };
 
 struct Block {
@@ -70,6 +77,7 @@ struct Sprite {
     int   sayTimer = 0;
     int   currentCostume = 0;
     std::vector<Costume> costumes;
+    std::string name = "Sprite1";   // نام کاراکتر
 };
 
 struct Workspace { int x, y, w, h; };

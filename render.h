@@ -83,6 +83,10 @@ SDL_Color lighten(SDL_Color c, int amt = 50) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// forward declarations for embedded block rendering
+static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool asBoolean);
+
+// ──────────────────────────────────────────────────────────────────────────────
 // رندر داخل بلاک (متن + input fieldها) — مشترک بین normal و C-block header
 static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
                                 bool isGhost = false)
@@ -90,54 +94,164 @@ static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
     const std::string& txt = block->text;
     SDL_Color tCol = isGhost ? SDL_Color{255,255,255,140} : SDL_Color{255,255,255,255};
 
-    if (!block->inputs.empty() && font) {
-        int inputIdx = 0;
-        int cx       = block->x + 10;
-        int cy       = block->y + (block->h - 14) / 2;
-        std::string segment;
+    // اگر هیچ input ندارد، فقط متن رندر کن
+    if (block->inputs.empty()) {
+        if (font) draw_text(r, font, txt, block->x+10, block->y+(block->h-14)/2, tCol);
+        return;
+    }
 
-        for (size_t i = 0; i <= txt.size(); i++) {
-            bool isInput = (i < txt.size() && txt[i] == '(' &&
-                            i+1 < txt.size() && txt[i+1] == ')');
-            bool isEnd   = (i == txt.size());
+    int inputIdx = 0;
+    int cx       = block->x + 10;
+    int cy       = block->y + (block->h - 14) / 2;
+    std::string segment;
 
-            if (isInput || isEnd) {
-                if (!segment.empty()) {
-                    draw_text(r, font, segment, cx, cy, tCol);
-                    int tw, th;
-                    TTF_SizeUTF8(font, segment.c_str(), &tw, &th);
-                    cx += tw;
-                    segment.clear();
-                }
-                if (isInput && inputIdx < (int)block->inputs.size()) {
-                    BlockInput& inp = block->inputs[inputIdx];
-                    int valW = std::max(30, (int)inp.value.size() * 8 + 8);
-                    SDL_Rect field = {cx, cy - 1, valW, 18};
-                    inp.rect = field;
+    for (size_t i = 0; i <= txt.size(); i++) {
+        bool isNumInput = (i < txt.size() && txt[i] == '(' &&
+                           i+1 < txt.size() && txt[i+1] == ')');
+        bool isBoolInput = (i < txt.size() && txt[i] == '<' &&
+                            i+1 < txt.size() && txt[i+1] == '>');
+        bool isEnd   = (i == txt.size());
 
-                    SDL_Color fieldBg = {255,255,255, (Uint8)(isGhost ? 100 : 230)};
-                    SDL_SetRenderDrawColor(r, fieldBg.r, fieldBg.g, fieldBg.b, fieldBg.a);
-                    SDL_RenderFillRect(r, &field);
-
-                    SDL_Color borderCol = inp.editing
-                        ? SDL_Color{60,100,255,255}
-                        : SDL_Color{170,170,170,255};
-                    SDL_SetRenderDrawColor(r, borderCol.r, borderCol.g, borderCol.b, 255);
-                    SDL_RenderDrawRect(r, &field);
-
-                    std::string display = inp.value + (inp.editing ? "|" : "");
-                    draw_text(r, font, display, cx+3, cy+1,
-                              SDL_Color{30,30,30,255});
-                    cx += valW + 4;
-                    inputIdx++;
-                    i++;
-                }
-            } else {
-                segment += txt[i];
+        if (isNumInput || isBoolInput || isEnd) {
+            if (!segment.empty() && font) {
+                draw_text(r, font, segment, cx, cy, tCol);
+                int tw, th;
+                TTF_SizeUTF8(font, segment.c_str(), &tw, &th);
+                cx += tw;
+                segment.clear();
             }
+            if ((isNumInput || isBoolInput) && inputIdx < (int)block->inputs.size()) {
+                BlockInput& inp = block->inputs[inputIdx];
+
+                if (isBoolInput) {
+                    // Slot بولین: شکل hexagonal / diamond
+                    int slotW = inp.rect.w > 0 ? inp.rect.w : 40;
+                    int slotH = 20;
+                    int sx = cx, sy = block->y + (block->h - slotH) / 2;
+                    inp.rect = {sx, sy, slotW, slotH};
+
+                    if (inp.embeddedBlock) {
+                        inp.embeddedBlock->x = sx + 2;
+                        inp.embeddedBlock->y = sy;
+                        inp.embeddedBlock->h = slotH;
+                        inp.embeddedBlock->w = slotW - 4;
+                        draw_embedded_block(r, font, inp.embeddedBlock, true);
+                    } else {
+                        // رندر slot خالی بولین با پس‌زمینه تیره‌تر
+                        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+                        SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(isGhost ? 40 : 80));
+                        // پر کردن hexagonal با خطوط افقی
+                        for (int dy = 0; dy < slotH; dy++) {
+                            float t = (float)dy / (slotH > 1 ? slotH-1 : 1);
+                            float edge = (t < 0.5f) ? t*2*6 : (1.0f-t)*2*6;
+                            SDL_RenderDrawLine(r, sx+(int)edge, sy+dy, sx+slotW-(int)edge, sy+dy);
+                        }
+                        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+                        // border hexagonal
+                        SDL_SetRenderDrawColor(r, 255, 255, 255, (Uint8)(isGhost ? 100 : 180));
+                        int pts[][2] = {
+                            {sx+6, sy}, {sx+slotW-6, sy},
+                            {sx+slotW, sy+slotH/2}, {sx+slotW-6, sy+slotH},
+                            {sx+6, sy+slotH}, {sx, sy+slotH/2}
+                        };
+                        for (int p = 0; p < 6; p++) {
+                            int nx = pts[(p+1)%6][0], ny = pts[(p+1)%6][1];
+                            SDL_RenderDrawLine(r, pts[p][0], pts[p][1], nx, ny);
+                        }
+                    }
+                    cx += slotW + 4;
+                } else {
+                    // Slot عددی
+                    int valW = inp.rect.w > 0 ? inp.rect.w :
+                               std::max(30, (int)inp.value.size() * 8 + 8);
+                    int slotH = 18;
+                    int sx = cx, sy = block->y + (block->h - slotH) / 2 - 1;
+                    inp.rect = {sx, sy, valW, slotH};
+
+                    if (inp.embeddedBlock) {
+                        inp.embeddedBlock->x = sx + 2;
+                        inp.embeddedBlock->y = sy;
+                        inp.embeddedBlock->h = slotH;
+                        inp.embeddedBlock->w = valW - 4;
+                        draw_embedded_block(r, font, inp.embeddedBlock, false);
+                    } else {
+                        SDL_Color fieldBg = {255,255,255, (Uint8)(isGhost ? 100 : 230)};
+                        SDL_SetRenderDrawColor(r, fieldBg.r, fieldBg.g, fieldBg.b, fieldBg.a);
+                        SDL_Rect field = {sx, sy, valW, slotH};
+                        SDL_RenderFillRect(r, &field);
+
+                        SDL_Color borderCol = inp.editing
+                            ? SDL_Color{60,100,255,255}
+                            : SDL_Color{170,170,170,255};
+                        SDL_SetRenderDrawColor(r, borderCol.r, borderCol.g, borderCol.b, 255);
+                        SDL_RenderDrawRect(r, &field);
+
+                        std::string display = inp.value + (inp.editing ? "|" : "");
+                        if (font)
+                            draw_text(r, font, display, sx+3, sy+1, SDL_Color{30,30,30,255});
+                    }
+                    cx += valW + 4;
+                }
+                inputIdx++;
+                i++;
+            }
+        } else {
+            segment += txt[i];
         }
-    } else if (font) {
-        draw_text(r, font, txt, block->x+10, block->y+(block->h-14)/2, tCol);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// رندر یک بلاک اپراتور که داخل slot جاسازی شده
+static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool asBoolean) {
+    if (!block) return;
+
+    SDL_Color col = get_block_color(block->type);
+    SDL_Color dark = darken(col, 30);
+    int x = block->x, y = block->y, w = block->w, h = block->h;
+
+    if (asBoolean) {
+        // شکل hexagonal (شش‌ضلعی) برای boolean operator
+        SDL_SetRenderDrawColor(r, col.r, col.g, col.b, 255);
+        int indent = h/2;
+        // رسم چندضلعی ساده با خطوط افقی
+        for (int dy = 0; dy < h; dy++) {
+            float t = (float)dy / (h > 1 ? h-1 : 1);
+            float edge = (t < 0.5f) ? t * 2 * indent : (1.0f - t) * 2 * indent;
+            int lx = x + (int)edge;
+            int rx = x + w - (int)edge;
+            SDL_RenderDrawLine(r, lx, y + dy, rx, y + dy);
+        }
+        // border
+        SDL_SetRenderDrawColor(r, dark.r, dark.g, dark.b, 255);
+        int pts[][2] = {
+            {x+indent, y}, {x+w-indent, y},
+            {x+w, y+h/2}, {x+w-indent, y+h},
+            {x+indent, y+h}, {x, y+h/2}
+        };
+        for (int p = 0; p < 6; p++) {
+            int nx = pts[(p+1)%6][0], ny = pts[(p+1)%6][1];
+            SDL_RenderDrawLine(r, pts[p][0], pts[p][1], nx, ny);
+        }
+    } else {
+        // شکل oval/pill برای numeric operator
+        SDL_SetRenderDrawColor(r, col.r, col.g, col.b, 255);
+        int r2 = h / 2;
+        // رسم با خطوط افقی (pill shape)
+        for (int dy = 0; dy < h; dy++) {
+            float t = (float)(dy - r2) / r2;
+            int cap = (int)(r2 * std::sqrt(1.0f - std::min(1.0f, t*t)));
+            SDL_RenderDrawLine(r, x + r2 - cap, y + dy, x + w - r2 + cap, y + dy);
+        }
+        // border
+        SDL_SetRenderDrawColor(r, dark.r, dark.g, dark.b, 255);
+        SDL_Rect border = {x, y, w, h};
+        SDL_RenderDrawRect(r, &border);
+    }
+
+    // متن + inputs داخل embedded block
+    if (font) {
+        draw_block_content(r, font, block, false);
     }
 }
 
@@ -165,6 +279,79 @@ static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
     if (isGhost) { SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND); col.a = 140; }
 
     int x = block->x, y = block->y, w = block->w, h = block->h;
+
+    // بلاک‌های اپراتور شکل خاص دارند
+    if (block->type == BLOCK_OPERATORS) {
+        bool isBool = is_boolean_operator(block->text);
+
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+        // سایه
+        SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 60 : 180);
+        if (isBool) {
+            // شکل hexagonal
+            int pts[][2] = {
+                {x+h/2+2, y+3}, {x+w-h/2+2, y+3},
+                {x+w+2, y+h/2+3}, {x+w-h/2+2, y+h+3},
+                {x+h/2+2, y+h+3}, {x+2, y+h/2+3}
+            };
+            for (int dy2 = 0; dy2 < h; dy2++) {
+                float t = (float)dy2 / (h > 1 ? h-1 : 1);
+                float edge = (t < 0.5f) ? t * 2 * (h/2) : (1.0f-t) * 2 * (h/2);
+                SDL_RenderDrawLine(r, x+(int)edge+2, y+dy2+3, x+w-(int)edge+2, y+dy2+3);
+            }
+        } else {
+            for (int dy2 = 0; dy2 < h; dy2++) {
+                float t = (float)(dy2 - h/2) / (h/2 > 0 ? h/2 : 1);
+                int cap = (int)((h/2) * std::sqrt(1.0f - std::min(1.0f, t*t)));
+                SDL_RenderDrawLine(r, x+(h/2)-cap+2, y+dy2+3, x+w-(h/2)+cap+2, y+dy2+3);
+            }
+        }
+        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+
+        // بدنه اصلی
+        SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
+        if (isBool) {
+            int indent = h/2;
+            for (int dy2 = 0; dy2 < h; dy2++) {
+                float t = (float)dy2 / (h > 1 ? h-1 : 1);
+                float edge = (t < 0.5f) ? t * 2 * indent : (1.0f-t) * 2 * indent;
+                SDL_RenderDrawLine(r, x+(int)edge, y+dy2, x+w-(int)edge, y+dy2);
+            }
+            // border hexagonal
+            SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 220);
+            int pts2[][2] = {
+                {x+indent, y}, {x+w-indent, y},
+                {x+w, y+h/2}, {x+w-indent, y+h},
+                {x+indent, y+h}, {x, y+h/2}
+            };
+            for (int p = 0; p < 6; p++) {
+                int nx = pts2[(p+1)%6][0], ny = pts2[(p+1)%6][1];
+                SDL_RenderDrawLine(r, pts2[p][0], pts2[p][1], nx, ny);
+            }
+        } else {
+            // oval/pill
+            int r2 = h/2;
+            for (int dy2 = 0; dy2 < h; dy2++) {
+                float t = (float)(dy2 - r2) / (r2 > 0 ? r2 : 1);
+                int cap = (int)(r2 * std::sqrt(1.0f - std::min(1.0f, t*t)));
+                SDL_RenderDrawLine(r, x+r2-cap, y+dy2, x+w-r2+cap, y+dy2);
+            }
+            // border oval
+            SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 220);
+            SDL_Rect border = {x, y, w, h};
+            SDL_RenderDrawRect(r, &border);
+        }
+
+        // highlight
+        SDL_SetRenderDrawColor(r, hl.r, hl.g, hl.b, isGhost ? 60 : 180);
+        SDL_RenderDrawLine(r, x+4, y+1, x+w-4, y+1);
+
+        // متن + inputها
+        draw_block_content(r, font, block, isGhost);
+
+        if (isGhost) SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+        return;
+    }
 
     // سایه
     SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 200);
@@ -631,6 +818,18 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     float scrX = sprite->x - STAGE_WIDTH/2.0f + sprite->w/2.0f;
     float scrY = -(sprite->y - STAGE_HEIGHT/2.0f + sprite->h/2.0f);
 
+    // نمایش نام sprite (فیلد 4 = قابل ویرایش)
+    draw_text(r, font, "name:", tx, ty, {120,120,120,255});
+    SDL_Rect nameBg = {tx+50, ty-2, pw-60, 18};
+    bool nameActive = (activeField == 4);
+    SDL_SetRenderDrawColor(r, nameActive?220:235, nameActive?240:235, nameActive?255:240, 255);
+    SDL_RenderFillRect(r, &nameBg);
+    SDL_SetRenderDrawColor(r, nameActive?80:180, nameActive?140:180, nameActive?220:200, 255);
+    SDL_RenderDrawRect(r, &nameBg);
+    std::string nameDisplay = nameActive ? (editText + "|") : sprite->name;
+    draw_text(r, font, nameDisplay, tx+54, ty, COLOR_TEXT_DARK);
+    ty += lineH;
+
     int fieldIdx = 0;
     auto drawRow = [&](const std::string& label, const std::string& val, bool editable) {
         draw_text(r, font, label, tx, ty, {120,120,120,255});
@@ -669,11 +868,18 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
 }
 
 // محاسبه شماره فیلد با توجه به موقعیت کلیک
-// برمی‌گرداند: 0=x,1=y,2=dir,3=size یا -1
+// برمی‌گرداند: 0=x,1=y,2=dir,3=size,4=name یا -1
 inline int sprite_info_field_at(int mx, int my) {
     int px = SPRITE_INFO_X, py = SPRITE_INFO_Y;
     int pw = SPRITE_INFO_W;
     int tx = px+10, ty = py+38, lineH = 24;
+    // فیلد name اول است (index=4)
+    SDL_Rect nameBg = {tx+50, ty-2, pw-60, 18};
+    if (mx >= nameBg.x && mx < nameBg.x+nameBg.w &&
+        my >= nameBg.y && my < nameBg.y+nameBg.h)
+        return 4;
+    ty += lineH;
+    // فیلدهای 0..3: x,y,dir,size
     for (int i = 0; i < 4; i++) {
         SDL_Rect fieldBg = {tx+50, ty-2, pw-60, 18};
         if (mx >= fieldBg.x && mx < fieldBg.x+fieldBg.w &&
