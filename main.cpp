@@ -11,11 +11,11 @@
 #include "render.h"
 #include "engine.h"
 #include "costume_editor.h"
-#include "SaveSystem.h"
-#include "OperatorLogic.h"
+#include "tab_bar.h"
 
 using namespace std;
 
+<<<<<<< HEAD
 vector<BlockData> convertToSaveData(const vector<Block*>& blocks) {
     vector<BlockData> data;
     for (auto b : blocks) {
@@ -74,6 +74,17 @@ int main(int argc, char* argv[]) {
     CostumeEditor costumeEditor;
     ce_init(costumeEditor);
 
+    // ── Tab state ──────────────────────────────────────────────────────────────
+    ActiveTab activeTab = TAB_CODE;   // ← NEW
+
+    // ── Toolbar icon rects (filled in draw_toolbar_icons each frame) ───────────
+    SDL_Rect gearBtn  = {0,0,0,0};
+    SDL_Rect notesBtn = {0,0,0,0};
+    SDL_Rect penBtn   = {0,0,0,0};
+    SDL_Rect bulbBtn  = {0,0,0,0};
+    SDL_Rect saveIconBtn = {0,0,0,0};
+    SDL_Rect loadIconBtn = {0,0,0,0};
+
     Uint32 lastCostumeClickTime = 0;
     int    lastCostumeClickIdx  = -1;
 
@@ -98,15 +109,19 @@ int main(int argc, char* argv[]) {
         sprite.texture = sprite.costumes[0].texture;
 
     Stage stage = {STAGE_X, STAGE_Y, STAGE_WIDTH, STAGE_HEIGHT, {255,255,255,255}};
-    Workspace workspace = {WORKSPACE_X, 0, WORKSPACE_W, SCREEN_HEIGHT};
+    Workspace workspace = {WORKSPACE_X, STAGE_Y, WORKSPACE_W, SCREEN_HEIGHT - STAGE_Y};
 
     Palette palette;
     palette.activeCategory = CAT_MOTION;
     palette.scrollOffset   = 0;
-    palette.catBarX = 0; palette.catBarY = 0;
-    palette.catBarW = CAT_ICON_W; palette.catBarH = SCREEN_HEIGHT;
-    palette.blockListX = CAT_ICON_W; palette.blockListY = 0;
-    palette.blockListW = BLOCK_LIST_W; palette.blockListH = SCREEN_HEIGHT;
+    palette.catBarX = 0;
+    palette.catBarY = STAGE_Y;
+    palette.catBarW = CAT_ICON_W;
+    palette.catBarH = SCREEN_HEIGHT - STAGE_Y;
+    palette.blockListX = CAT_ICON_W;
+    palette.blockListY = STAGE_Y;
+    palette.blockListW = BLOCK_LIST_W;
+    palette.blockListH = SCREEN_HEIGHT - STAGE_Y;
 
     int iy = 16;
     auto addCat = [&](CategoryType t, const string& n, SDL_Color col) {
@@ -133,6 +148,10 @@ int main(int argc, char* argv[]) {
         paletteBlocks.push_back(b);
     };
 
+<<<<<<< HEAD
+=======
+    // (تمام addPB ها عین قبل - اینجا کپی می‌کنی)
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_MOTION, "move 10 steps");
     addPB(BLOCK_MOTION, "turn 15 degrees");
     addPB(BLOCK_MOTION, "turn left 15 degrees");
@@ -147,7 +166,10 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_MOTION, "change y by 10");
     addPB(BLOCK_MOTION, "set y to 0");
     addPB(BLOCK_MOTION, "if on edge, bounce");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_LOOKS, "say Hello!");
     addPB(BLOCK_LOOKS, "say Hello! for 2 secs");
     addPB(BLOCK_LOOKS, "think Hmm...");
@@ -157,7 +179,10 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_LOOKS, "switch costume to 0");
     addPB(BLOCK_LOOKS, "set size to 100");
     addPB(BLOCK_LOOKS, "change size by 10");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_SOUND, "play sound Meow");
     addPB(BLOCK_SOUND, "play sound Meow until done");
     addPB(BLOCK_SOUND, "stop all sounds");
@@ -167,14 +192,20 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_SOUND, "change pitch effect by 10");
     addPB(BLOCK_SOUND, "set pitch effect to 100");
     addPB(BLOCK_SOUND, "clear sound effects");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_EVENT, "when flag clicked");
     addPB(BLOCK_EVENT, "when key pressed");
     addPB(BLOCK_EVENT, "when sprite clicked");
     addPB(BLOCK_EVENT, "when backdrop switches to");
     addPB(BLOCK_EVENT, "broadcast message");
     addPB(BLOCK_EVENT, "broadcast message and wait");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_CONTROL, "wait 1 secs");
     addPB(BLOCK_CONTROL, "repeat 10");
     addPB(BLOCK_CONTROL, "repeat 3");
@@ -185,7 +216,10 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_CONTROL, "stop all");
     addPB(BLOCK_CONTROL, "stop this script");
     addPB(BLOCK_CONTROL, "stop other scripts");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_SENSING, "ask What's your name? and wait");
     addPB(BLOCK_SENSING, "answer");
     addPB(BLOCK_SENSING, "touching mouse-pointer?");
@@ -199,7 +233,10 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_SENSING, "timer");
     addPB(BLOCK_SENSING, "reset timer");
     addPB(BLOCK_SENSING, "distance to mouse-pointer");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_OPERATORS, "() + ()");
     addPB(BLOCK_OPERATORS, "() - ()");
     addPB(BLOCK_OPERATORS, "() * ()");
@@ -224,7 +261,10 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_OPERATORS, "letter 1 of hello");
     addPB(BLOCK_OPERATORS, "length of hello");
     addPB(BLOCK_OPERATORS, "contains hello world");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_VARIABLES, "set score to 0");
     addPB(BLOCK_VARIABLES, "change score by 1");
     addPB(BLOCK_VARIABLES, "show variable score");
@@ -249,8 +289,8 @@ int main(int argc, char* argv[]) {
     costumePanel.selectedIndex = 0;
     costumePanel.visible       = true;
 
-    SDL_Rect playBtn = {STAGE_X + 10, STAGE_Y - 52, 46, 46};
-    SDL_Rect stopBtn = {STAGE_X + 62, STAGE_Y - 46, 34, 34};
+    SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 38, 32};
+    SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H - 4, 32, 32};
 
     vector<Block*> workspaceBlocks;
     Block* draggedBlock = nullptr;
@@ -271,6 +311,9 @@ int main(int argc, char* argv[]) {
     bool isVarCat   = false;
     bool isMyBlocks = false;
 
+    // ── save/load file path ────────────────────────────────────────────────────
+    const std::string projectFile = "project.scratch";
+
     while (!quit) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) { quit = true; break; }
@@ -280,6 +323,7 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+<<<<<<< HEAD
             if (e.type == SDL_KEYDOWN) {
                 if (activeInput) {
                     if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER ||
@@ -289,6 +333,40 @@ int main(int argc, char* argv[]) {
                         SDL_StopTextInput();
                     } else if (e.key.keysym.sym == SDLK_BACKSPACE && !activeInput->value.empty()) {
                         activeInput->value.pop_back();
+=======
+            if (activeInput && e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER ||
+                    e.key.keysym.sym == SDLK_ESCAPE) {
+                    activeInput->editing = false;
+                    activeInput = nullptr;
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !activeInput->value.empty()) {
+                    activeInput->value.pop_back();
+                }
+                continue;
+            }
+            if (activeInput && e.type == SDL_TEXTINPUT) {
+                std::string ch = e.text.text;
+                for (char c : ch) {
+                    if (std::isdigit(c) || c == '.' || (c == '-' && activeInput->value.empty()))
+                        activeInput->value += c;
+                }
+                continue;
+            }
+
+            if (varsPanel.creating && e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                    if (!varsPanel.newVarName.empty()) {
+                        Variable nv;
+                        nv.name = varsPanel.newVarName;
+                        nv.value = 0.0f;
+                        nv.showOnStage = true;
+                        varsPanel.variables.push_back(nv);
+                        addPB(BLOCK_VARIABLES, "set " + varsPanel.newVarName + " to 0");
+                        addPB(BLOCK_VARIABLES, "change " + varsPanel.newVarName + " by 1");
+                        addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
+                        addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
                     }
                     continue;
                 }
@@ -391,6 +469,31 @@ int main(int argc, char* argv[]) {
                     SDL_StopTextInput();
                 }
 
+                // ── Tab bar click ──────────────────────────────────────────────
+                if (tab_bar_click(mx, my, activeTab)) {
+                    if (activeTab == TAB_COSTUMES) {
+                        // immediately open costume editor for currently selected costume
+                        int idx = costumePanel.selectedIndex;
+                        if (idx < 0 || idx >= (int)sprite.costumes.size()) idx = 0;
+                        if (!sprite.costumes.empty())
+                            ce_open(costumeEditor, renderer, &sprite, idx);
+                    }
+                    continue;
+                }
+
+                // ── Toolbar icon clicks ────────────────────────────────────────
+                if (point_in_rect(mx, my, saveIconBtn.x, saveIconBtn.y,
+                                  saveIconBtn.w, saveIconBtn.h)) {
+                    save_project(projectFile, workspaceBlocks, varsPanel);
+                    continue;
+                }
+                if (point_in_rect(mx, my, loadIconBtn.x, loadIconBtn.y,
+                                  loadIconBtn.w, loadIconBtn.h)) {
+                    load_project(projectFile, workspaceBlocks, varsPanel, bid);
+                    continue;
+                }
+
+                // ── rest of existing clicks (unchanged) ───────────────────────
                 if (point_in_rect(mx, my, playBtn.x, playBtn.y, playBtn.w, playBtn.h)) {
                     Block* s = find_script_start(workspaceBlocks);
                     if (s) scriptRunner.start(s, &varsPanel.variables);
@@ -484,37 +587,102 @@ int main(int argc, char* argv[]) {
         isVarCat   = (palette.activeCategory == CAT_VARIABLES);
         isMyBlocks = (palette.activeCategory == CAT_MYBLOCKS);
 
+<<<<<<< HEAD
+=======
+        // ── RENDER ────────────────────────────────────────────────────────────
+>>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, COLOR_HEADER_BAR.r, COLOR_HEADER_BAR.g,
-                               COLOR_HEADER_BAR.b, 255);
-        SDL_Rect headerBar = {STAGE_X, 0, STAGE_WIDTH, STAGE_Y};
+        // 1. Purple header bar  (0 .. HEADER_H)
+        SDL_SetRenderDrawColor(renderer,
+            COLOR_HEADER_BAR.r, COLOR_HEADER_BAR.g, COLOR_HEADER_BAR.b, 255);
+        SDL_Rect headerBar = { 0, 0, SCREEN_WIDTH, HEADER_H };
         SDL_RenderFillRect(renderer, &headerBar);
 
-        draw_category_bar(renderer, fontSmall, palette);
-        string activeName; SDL_Color activeCol;
-        getActiveCatInfo(activeName, activeCol);
+        // 2. Toolbar icons  (inside header)
+        draw_toolbar_icons(renderer, fontSmall,
+                           gearBtn, notesBtn, penBtn, bulbBtn,
+                           saveIconBtn, loadIconBtn);
 
-        if (isVarCat) {
-            draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
-                                   true, &makeVarBtn);
-            makeBlockBtn = {0,0,0,0};
-        } else if (isMyBlocks) {
-            draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
-                                   true, &makeBlockBtn);
-            makeVarBtn = {0,0,0,0};
-        } else {
-            draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
-                                   false, nullptr);
-            makeVarBtn   = {0,0,0,0};
-            makeBlockBtn = {0,0,0,0};
+        // 3. Tab bar  (HEADER_H .. HEADER_H+TAB_H)
+        draw_tab_bar(renderer, fontSmall, activeTab);
+
+
+        // ── Left panel: only show blocks if TAB_CODE ──────────────────────────
+        if (activeTab == TAB_CODE) {
+            draw_category_bar(renderer, fontSmall, palette);
+            string activeName; SDL_Color activeCol;
+            getActiveCatInfo(activeName, activeCol);
+
+            if (isVarCat) {
+                draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
+                                       true, &makeVarBtn);
+                makeBlockBtn = {0,0,0,0};
+            } else if (isMyBlocks) {
+                draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
+                                       true, &makeBlockBtn);
+                makeVarBtn = {0,0,0,0};
+            } else {
+                draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
+                                       false, nullptr);
+                makeVarBtn   = {0,0,0,0};
+                makeBlockBtn = {0,0,0,0};
+            }
+
+            for (Block* b : paletteBlocks)
+                if (block_matches_category(b, palette.activeCategory))
+                    draw_block(renderer, fontSmall, b);
+        }
+        else if (activeTab == TAB_COSTUMES) {
+            // پنل پس‌زمینه - فقط از STAGE_Y به پایین
+            SDL_SetRenderDrawColor(renderer, 245, 240, 255, 255);
+            SDL_Rect leftPanel = {0, STAGE_Y, PALETTE_WIDTH, SCREEN_HEIGHT - STAGE_Y};
+            SDL_RenderFillRect(renderer, &leftPanel);
+
+            SDL_SetRenderDrawColor(renderer, COLOR_LOOKS.r, COLOR_LOOKS.g, COLOR_LOOKS.b, 255);
+            SDL_Rect panHdr = {0, STAGE_Y, PALETTE_WIDTH, 32};
+            SDL_RenderFillRect(renderer, &panHdr);
+            if (fontBig)
+                draw_text_centered(renderer, fontBig, "Costumes", panHdr, COLOR_TEXT_WHITE);
+
+            int cy2 = STAGE_Y + 38;
+            for (int i = 0; i < (int)sprite.costumes.size(); i++) {
+                bool sel = (i == costumePanel.selectedIndex);
+                SDL_SetRenderDrawColor(renderer,
+                    sel?200:240, sel?210:240, sel?255:240, 255);
+                SDL_Rect row = {4, cy2, PALETTE_WIDTH-8, 48};
+                SDL_RenderFillRect(renderer, &row);
+                SDL_SetRenderDrawColor(renderer,
+                    sel?80:180, sel?100:180, sel?220:200, 255);
+                SDL_RenderDrawRect(renderer, &row);
+                if (fontSmall) {
+                    std::string lbl = std::to_string(i+1) + ". " + sprite.costumes[i].name;
+                    draw_text(renderer, fontSmall, lbl, 10, cy2+14, COLOR_TEXT_DARK);
+                }
+                cy2 += 54;
+            }
+            if (fontSmall)
+                draw_text(renderer, fontSmall, "Click a costume to edit",
+                          6, cy2+4, {150,120,180,255});
+        }
+        else if (activeTab == TAB_SOUNDS) {
+            SDL_SetRenderDrawColor(renderer, 250, 240, 255, 255);
+            SDL_Rect leftPanel = {0, STAGE_Y, PALETTE_WIDTH, SCREEN_HEIGHT - STAGE_Y};
+            SDL_RenderFillRect(renderer, &leftPanel);
+
+            SDL_SetRenderDrawColor(renderer,
+                COLOR_SOUND.r, COLOR_SOUND.g, COLOR_SOUND.b, 255);
+            SDL_Rect panHdr = {0, STAGE_Y, PALETTE_WIDTH, 32};
+            SDL_RenderFillRect(renderer, &panHdr);
+            if (fontBig)
+                draw_text_centered(renderer, fontBig, "Sounds", panHdr, COLOR_TEXT_WHITE);
+            if (fontSmall)
+                draw_text(renderer, fontSmall, "No sounds yet",
+                          16, STAGE_Y + 50, {150,120,180,255});
         }
 
-        for (Block* b : paletteBlocks)
-            if (block_matches_category(b, palette.activeCategory))
-                draw_block(renderer, fontSmall, b);
-
+        // ── Workspace ─────────────────────────────────────────────────────────
         draw_workspace_bg(renderer, workspace);
         for (Block* b : workspaceBlocks) {
             update_block_input_rects(b);
@@ -527,15 +695,12 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 120);
             SDL_Rect overlay = {workspace.x, workspace.y, workspace.w, workspace.h};
             SDL_RenderFillRect(renderer, &overlay);
-
             SDL_SetRenderDrawColor(renderer, 250, 250, 255, 255);
             SDL_Rect box = {ox, oy, 320, 80};
             SDL_RenderFillRect(renderer, &box);
             SDL_SetRenderDrawColor(renderer, 150, 150, 200, 255);
             SDL_RenderDrawRect(renderer, &box);
-
             if (fontBig) draw_text(renderer, fontBig, title, ox+12, oy+10, COLOR_TEXT_DARK);
-
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
             SDL_Rect field = {ox+12, oy+34, 220, 26};
             SDL_RenderFillRect(renderer, &field);
@@ -543,7 +708,6 @@ int main(int argc, char* argv[]) {
             SDL_RenderDrawRect(renderer, &field);
             if (fontSmall)
                 draw_text(renderer, fontSmall, inputText + "|", ox+16, oy+40, COLOR_TEXT_DARK);
-
             SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
             SDL_Rect okBtn = {ox+244, oy+34, 64, 26};
             SDL_RenderFillRect(renderer, &okBtn);
@@ -557,11 +721,10 @@ int main(int argc, char* argv[]) {
 
         draw_stage(renderer, &stage);
         draw_sprite(renderer, &sprite, &stage, fontSmall);
+        draw_operator_result(renderer, fontSmall, &stage);
         draw_variable_monitors(renderer, fontSmall, varsPanel, &stage);
-
         draw_costume_panel(renderer, fontSmall, fontBig, costumePanel, &sprite);
         draw_sprite_info_panel(renderer, fontSmall, fontBig, &sprite);
-
         draw_play_stop_buttons(renderer, fontSmall, playBtn, stopBtn,
                                playTex, stopTex, scriptRunner.running);
 
@@ -572,7 +735,6 @@ int main(int argc, char* argv[]) {
 
     if (costumeEditor.canvasTex)  SDL_DestroyTexture(costumeEditor.canvasTex);
     if (costumeEditor.canvasSurf) SDL_FreeSurface(costumeEditor.canvasSurf);
-
     for (auto b : paletteBlocks)   delete b;
     for (auto b : workspaceBlocks) delete b;
     for (auto& c : sprite.costumes) if (c.texture) SDL_DestroyTexture(c.texture);

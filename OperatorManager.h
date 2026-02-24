@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #ifndef OPERATORLOGIC_H
 #define OPERATORLOGIC_H
 #include <string>
@@ -52,3 +53,12 @@ inline bool contains(string str, string substr) {
 }
 
 #endif
+=======
+//
+// Created by Domim on 2/24/2026.
+//
+
+#ifndef SCRATCH_FOP_OPERATORMANAGER_H
+#define SCRATCH_FOP_OPERATORMANAGER_H
+
+#endif //SCRATCH_FOP_OPERATORMANAGER_H

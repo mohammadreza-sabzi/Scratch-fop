@@ -12,6 +12,7 @@ struct BlockData {
     string value;
 };
 
+<<<<<<< HEAD
 inline void saveToFile(const string& filename, const vector<BlockData>& blocks) {
     ofstream file(filename);
     if (file.is_open()) {
@@ -39,5 +40,6 @@ inline vector<BlockData> loadFromFile(const string& filename) {
     }
     return blocks;
 }
+
 
 #endif

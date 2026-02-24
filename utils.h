@@ -42,13 +42,13 @@ void init_block_inputs(Block* b) {
     const std::string& txt = b->text;
     int idx = 0;
     for (size_t i = 0; i < txt.size(); i++) {
-        if (txt[i] == '(' && i+1 < txt.size() && txt[i+1] == ')') {
+        if (txt[i] == '(' && i + 1 < txt.size() && txt[i + 1] == ')') {
             BlockInput inp;
-            inp.value   = "0";
+            inp.value   = "10";
             inp.editing = false;
             inp.index   = idx++;
             b->inputs.push_back(inp);
-            i++; // skip ')'
+            i++;
         }
     }
 }
@@ -57,16 +57,16 @@ void update_block_input_rects(Block* b) {
     if (b->inputs.empty()) return;
     const std::string& txt = b->text;
     int inputIdx = 0;
-    int charW = 7;
-    int xCursor = b->x + 10;
+    int charW    = 7;
+    int xCursor  = b->x + 10;
     int yCenter  = b->y + (b->h - 18) / 2;
 
     for (size_t i = 0; i < txt.size() && inputIdx < (int)b->inputs.size(); i++) {
-        if (txt[i] == '(' && i+1 < txt.size() && txt[i+1] == ')') {
+        if (txt[i] == '(' && i + 1 < txt.size() && txt[i + 1] == ')') {
             const std::string& val = b->inputs[inputIdx].value;
-            int valW = std::max(20, (int)val.size() * charW + 6);
+            int valW = std::max(24, (int)val.size() * charW + 8);
             b->inputs[inputIdx].rect = {xCursor, yCenter, valW, 18};
-            xCursor += valW + 2;
+            xCursor += valW + 4;
             inputIdx++;
             i++;
         } else {
@@ -75,23 +75,46 @@ void update_block_input_rects(Block* b) {
     }
 }
 
-void layout_palette_blocks(std::vector<Block*>& blocks, Palette& palette) {
-    int startY = (palette.activeCategory == CAT_VARIABLES ||
-                  palette.activeCategory == CAT_MYBLOCKS) ? 88 : 52;
-    int y = palette.blockListY + startY + palette.scrollOffset;
-    int x = palette.blockListX + 12;
-    for (Block* b : blocks) {
-        if (!block_matches_category(b, palette.activeCategory)) continue;
-        b->x = x; b->y = y; b->w = BLOCK_W; b->h = BLOCK_H;
-        update_block_input_rects(b);
-        y += BLOCK_H + BLOCK_PADDING;
+void layout_palette_blocks(std::vector<Block*>& paletteBlocks,
+                            const Palette& palette)
+{
+    int hdrH = (palette.activeCategory == CAT_VARIABLES ||
+                palette.activeCategory == CAT_MYBLOCKS) ? 88 : 44;
+
+    // شروع Y بلاک‌های فعال
+    int startY = palette.blockListY + hdrH + BLOCK_LIST_TOP_OFFSET;
+    int y = startY + palette.scrollOffset;
+    int x = palette.blockListX + 10;
+    int bw = palette.blockListW - 20;
+
+    for (Block* b : paletteBlocks) {
+        if (!block_matches_category(b, palette.activeCategory)) {
+            // *** کلیدی: بلاک‌های غیرفعال رو کاملاً از دید خارج کن ***
+            b->x = palette.blockListX - 9999;
+            b->y = -9999;
+            b->w = bw;
+            b->h = BLOCK_H;
+            continue;
+        }
+
+        b->x = x;
+        b->y = y;
+        b->w = bw;
+        b->h = BLOCK_H;
+
+        y += BLOCK_H + 4;
     }
 }
 
-Block* check_palette_click(int mx, int my, std::vector<Block*>& blocks, Palette& palette) {
+Block* check_palette_click(int mx, int my,
+                            std::vector<Block*>& blocks,
+                            Palette& palette) {
     for (int i = (int)blocks.size() - 1; i >= 0; i--) {
         Block* b = blocks[i];
         if (!block_matches_category(b, palette.activeCategory)) continue;
+        // فقط بلاک‌هایی که داخل ناحیه لیست هستند کلیک بگیرند
+        if (b->x < palette.blockListX) continue;
+        if (b->y < palette.blockListY) continue;
         if (point_in_rect(mx, my, b->x, b->y, b->w, b->h)) return b;
     }
     return nullptr;
@@ -113,11 +136,15 @@ void handle_scroll_value(SDL_Event& e, int& scrollOffset) {
     if (scrollOffset > 0) scrollOffset = 0;
 }
 
-BlockInput* check_input_click(int mx, int my, std::vector<Block*>& blocks) {
+BlockInput* check_input_click(int mx, int my,
+                               std::vector<Block*>& blocks) {
     for (Block* b : blocks) {
         if (b->isDragging) continue;
         for (auto& inp : b->inputs) {
-            if (point_in_rect(mx, my, inp.rect.x, inp.rect.y, inp.rect.w, inp.rect.h))
+            if (inp.rect.w > 0 &&
+                point_in_rect(mx, my,
+                              inp.rect.x, inp.rect.y,
+                              inp.rect.w, inp.rect.h))
                 return &inp;
         }
     }

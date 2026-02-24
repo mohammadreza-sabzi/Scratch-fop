@@ -6,6 +6,7 @@
 #define SCRATCH_FOP_GLOBALS_H
 
 #include <SDL2/SDL_pixels.h>
+#include <cmath>
 
 const int SCREEN_WIDTH  = 1280;
 const int SCREEN_HEIGHT = 720;
@@ -15,8 +16,15 @@ const int BLOCK_LIST_W  = 185;
 const int PALETTE_WIDTH = CAT_ICON_W + BLOCK_LIST_W;
 const int STAGE_WIDTH   = 480;
 const int STAGE_HEIGHT  = 360;
+
+const int HEADER_H      = 50;
+const int TAB_H         = 36;
+const int STAGE_Y       = HEADER_H + TAB_H;   // = 86
+
+// ── فاصله بلاک‌ها از بالای لیست ─────────────────────────────────────────────
+const int BLOCK_LIST_TOP_OFFSET = 8;  // فاصله اضافه از بالا
+
 const int STAGE_X       = SCREEN_WIDTH - STAGE_WIDTH;
-const int STAGE_Y       = 60;
 const int WORKSPACE_X   = PALETTE_WIDTH;
 const int WORKSPACE_W   = SCREEN_WIDTH - PALETTE_WIDTH - STAGE_WIDTH;
 
@@ -32,22 +40,35 @@ const int COSTUME_PANEL_Y = STAGE_Y + STAGE_HEIGHT;
 const int COSTUME_PANEL_W = STAGE_WIDTH / 2;
 const int COSTUME_PANEL_H = SCREEN_HEIGHT - STAGE_Y - STAGE_HEIGHT;
 const int COSTUME_THUMB   = 52;
+
 const int SPRITE_INFO_X = STAGE_X + STAGE_WIDTH / 2;
 const int SPRITE_INFO_Y = STAGE_Y + STAGE_HEIGHT;
 const int SPRITE_INFO_W = STAGE_WIDTH / 2;
 const int SPRITE_INFO_H = SCREEN_HEIGHT - STAGE_Y - STAGE_HEIGHT;
+
 const int VAR_PANEL_W   = 170;
 const int VAR_PANEL_H   = 200;
 
-const SDL_Color COLOR_MOTION    = {74,  144, 226, 255};
-const SDL_Color COLOR_LOOKS     = {155, 89,  182, 255};
-const SDL_Color COLOR_SOUND     = {207, 74,  217, 255};
-const SDL_Color COLOR_EVENTS    = {230, 168, 34,  255};
-const SDL_Color COLOR_CONTROL   = {229, 148, 0,   255};
-const SDL_Color COLOR_SENSING   = {92,  177, 214, 255};
-const SDL_Color COLOR_OPERATORS = {89,  192, 89,  255};
-const SDL_Color COLOR_VARIABLES = {242, 100, 47,  255};
-const SDL_Color COLOR_MYBLOCKS  = {194, 68,  68,  255};
+const int TAB_CODE_X    = 0;
+const int TAB_CODE_W    = 90;
+const int TAB_COST_X    = 90;
+const int TAB_COST_W    = 110;
+const int TAB_SND_X     = 200;
+const int TAB_SND_W     = 100;
+
+const int ICON_BTN_SIZE = 32;
+const int ICON_BTN_Y    = (HEADER_H - ICON_BTN_SIZE) / 2;
+
+// Colors
+const SDL_Color COLOR_MOTION     = {74,  144, 226, 255};
+const SDL_Color COLOR_LOOKS      = {155, 89,  182, 255};
+const SDL_Color COLOR_SOUND      = {207, 74,  217, 255};
+const SDL_Color COLOR_EVENTS     = {230, 168, 34,  255};
+const SDL_Color COLOR_CONTROL    = {229, 148, 0,   255};
+const SDL_Color COLOR_SENSING    = {92,  177, 214, 255};
+const SDL_Color COLOR_OPERATORS  = {89,  192, 89,  255};
+const SDL_Color COLOR_VARIABLES  = {242, 100, 47,  255};
+const SDL_Color COLOR_MYBLOCKS   = {194, 68,  68,  255};
 
 const SDL_Color COLOR_BG_CATBAR    = {255, 255, 255, 255};
 const SDL_Color COLOR_BG_BLOCKLIST = {250, 250, 250, 255};
@@ -56,5 +77,7 @@ const SDL_Color COLOR_TEXT_DARK    = {30,  30,  30,  255};
 const SDL_Color COLOR_TEXT_WHITE   = {255, 255, 255, 255};
 const SDL_Color COLOR_SCRATCH_PURPLE = {106, 74, 167, 255};
 const SDL_Color COLOR_HEADER_BAR   = {100, 65,  165, 255};
+const SDL_Color COLOR_TAB_ACTIVE   = {255, 255, 255, 255};
+const SDL_Color COLOR_TAB_INACTIVE = {210, 200, 230, 255};
 
 #endif
