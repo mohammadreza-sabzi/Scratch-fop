@@ -226,43 +226,89 @@ void draw_category_bar(SDL_Renderer* r, TTF_Font* font, Palette& palette) {
 
 
 void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
-                            Palette& palette, const std::string& activeCatName,
-                            SDL_Color activeCatColor,
-                            bool showMakeVarBtn = false,
-                            SDL_Rect* makeVarBtnOut = nullptr)
+                             const Palette& palette,
+                             const std::string& catName,
+                             SDL_Color catColor,
+                             bool showMakeBtn,
+                             SDL_Rect* makeBtnOut)
 {
-    SDL_SetRenderDrawColor(r, COLOR_BG_BLOCKLIST.r, COLOR_BG_BLOCKLIST.g,
-                           COLOR_BG_BLOCKLIST.b, 255);
-    SDL_Rect listRect = {palette.blockListX, palette.blockListY,
-                         palette.blockListW, palette.blockListH};
+    // ── پس‌زمینه کل ناحیه لیست بلاک ──────────────────────────────────────
+    SDL_SetRenderDrawColor(r, 245, 245, 250, 255);
+    SDL_Rect listRect = {
+        palette.blockListX,
+        palette.blockListY,          // ← از STAGE_Y = 86 شروع می‌شود
+        palette.blockListW,
+        palette.blockListH
+    };
     SDL_RenderFillRect(r, &listRect);
 
-    SDL_SetRenderDrawColor(r, activeCatColor.r, activeCatColor.g, activeCatColor.b, 40);
-    SDL_Rect hdr = {palette.blockListX, 0, palette.blockListW, 44};
+    // ── هدر رنگی دسته‌بندی ─────────────────────────────────────────────────
+    // باید از palette.blockListY شروع شود، نه از 0
+    int hdrY  = palette.blockListY;          // ← تغییر کلیدی
+    int hdrH  = (palette.activeCategory == CAT_VARIABLES ||
+                 palette.activeCategory == CAT_MYBLOCKS) ? 88 : 44;
+
+    // رنگ پس‌زمینه هدر (شفاف)
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r,
+        catColor.r, catColor.g, catColor.b, 40);
+    SDL_Rect hdr = {
+        palette.blockListX,
+        hdrY,                                // ← از 86 شروع می‌شود
+        palette.blockListW,
+        hdrH
+    };
     SDL_RenderFillRect(r, &hdr);
 
-    SDL_SetRenderDrawColor(r, activeCatColor.r, activeCatColor.g, activeCatColor.b, 255);
-    SDL_Rect accentLine = {palette.blockListX, 42, palette.blockListW, 3};
+    // خط تأکید پایین هدر
+    SDL_SetRenderDrawColor(r,
+        catColor.r, catColor.g, catColor.b, 255);
+    SDL_Rect accentLine = {
+        palette.blockListX,
+        hdrY + hdrH - 3,                     // ← پایین هدر
+        palette.blockListW,
+        3
+    };
     SDL_RenderFillRect(r, &accentLine);
 
-    SDL_SetRenderDrawColor(r, 210, 210, 210, 255);
-    SDL_RenderDrawLine(r, palette.blockListX+palette.blockListW-1, 0,
-                          palette.blockListX+palette.blockListW-1, SCREEN_HEIGHT);
+    // نام دسته‌بندی
+    if (fontBig) {
+        SDL_Rect textRect = {
+            palette.blockListX + 10,
+            hdrY + 10,                       // ← داخل هدر
+            palette.blockListW - 20,
+            24
+        };
+        draw_text_centered(r, fontBig, catName, textRect, catColor);
+    }
 
-    if (fontBig)
-        draw_text(r, fontBig, activeCatName,
-                  palette.blockListX+12, 12, activeCatColor);
+    // دکمه Make a Variable / Make a Block
+    if (showMakeBtn && makeBtnOut) {
+        std::string btnLabel =
+            (palette.activeCategory == CAT_VARIABLES)
+                ? "Make a Variable"
+                : "Make a Block";
 
-    if (showMakeVarBtn) {
-        SDL_Rect btn = {palette.blockListX + 8, 52, palette.blockListW - 16, 26};
-        SDL_SetRenderDrawColor(r, COLOR_VARIABLES.r, COLOR_VARIABLES.g, COLOR_VARIABLES.b, 255);
+        SDL_Rect btn = {
+            palette.blockListX + 10,
+            hdrY + 50,                       // ← زیر نام دسته‌بندی
+            palette.blockListW - 20,
+            28
+        };
+        SDL_SetRenderDrawColor(r,
+            catColor.r, catColor.g, catColor.b, 200);
         SDL_RenderFillRect(r, &btn);
-        SDL_SetRenderDrawColor(r, 180, 60, 10, 255);
+        SDL_SetRenderDrawColor(r,
+            catColor.r, catColor.g, catColor.b, 255);
         SDL_RenderDrawRect(r, &btn);
-        if (fontBig) draw_text_centered(r, fontBig, "+ Make a Variable", btn, COLOR_TEXT_WHITE);
-        if (makeVarBtnOut) *makeVarBtnOut = btn;
+
+        if (fontBig)
+            draw_text_centered(r, fontBig, btnLabel, btn, {255,255,255,255});
+
+        *makeBtnOut = btn;
     }
 }
+
 
 
 
