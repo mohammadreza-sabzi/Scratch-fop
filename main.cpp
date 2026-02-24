@@ -12,11 +12,17 @@
 #include "engine.h"
 #include "costume_editor.h"
 #include "tab_bar.h"
+#include "audio.h"
+#include "Sound_panel.h"
 
 using namespace std;
 
+// ── اشاره‌گر سراسری به پنل صداها ─────────────────────────────────────────────
+SoundsPanel* g_soundsPanel = nullptr;
+
 int main(int argc, char* argv[]) {
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO);
+    audio_init();
     IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG);
     TTF_Init();
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
@@ -30,7 +36,6 @@ int main(int argc, char* argv[]) {
                               SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    // ── Logical size: محتوا همیشه با ابعاد اصلی رندر می‌شه ──────────────────
     SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 #ifdef _WIN32
@@ -241,6 +246,37 @@ int main(int argc, char* argv[]) {
     costumePanel.selectedIndex = 0;
     costumePanel.visible       = true;
 
+    // ── پنل صداها ────────────────────────────────────────────────────────────
+    SoundsPanel soundsPanel;
+    soundsPanel.x = 0;
+    soundsPanel.y = STAGE_Y;
+    soundsPanel.w = PALETTE_WIDTH;
+    soundsPanel.h = SCREEN_HEIGHT - STAGE_Y;
+    soundsPanel.visible        = true;
+    soundsPanel.selectedIndex  = -1;
+    soundsPanel.scrollOffset   = 0;
+    soundsPanel.uploadDialogOpen = false;
+    soundsPanel.uploadEditing    = false;
+
+    // ── صداهای پیش‌فرض ───────────────────────────────────────────────────────
+    auto addDefaultSound = [&](const char* name, const char* path) {
+        SoundClip sc;
+        sc.name     = name;
+        sc.filePath = path;
+        sc.volume   = 100.0f;
+        sc.chunk    = nullptr;
+        sc.channel  = -1;
+        sc.isPlaying = false;
+        audio_load(sc);
+        soundsPanel.sounds.push_back(sc);
+    };
+    addDefaultSound("Pop",  "pop.wav");
+    addDefaultSound("Meow", "meow.wav");
+    addDefaultSound("Drum", "drum.wav");
+
+    // ── اشاره‌گر سراسری ──────────────────────────────────────────────────────
+    g_soundsPanel = &soundsPanel;
+
     SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 38, 32};
     SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H - 4, 32, 32};
 
@@ -271,33 +307,43 @@ int main(int argc, char* argv[]) {
             SDL_SetWindowFullscreen(window, 0);
             SDL_RestoreWindow(window);
         } else {
-            // اگه maximize بود اول restore کن
             if (flags & SDL_WINDOW_MAXIMIZED) {
                 SDL_RestoreWindow(window);
             }
             SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
         }
     };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  MAIN LOOP
+    // ═══════════════════════════════════════════════════════════════════════════
     while (!quit) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) { quit = true; break; }
 
-            // ── جدید (درست) ──────────────────────────────────────────────────────
+            // ── Window events ─────────────────────────────────────────────────
             if (e.type == SDL_WINDOWEVENT) {
                 if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
-                    // از maximize مستقیم به fullscreen_desktop برو
                     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                    // پنجره رو از حالت maximize درآر تا conflict نشه
                     SDL_RestoreWindow(window);
                 }
             }
 
+            // ── Keyboard ──────────────────────────────────────────────────────
             if (e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_f) {
                     toggle_fullscreen();
                     continue;
                 }
                 if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    // اگه دیالوگ آپلود باز بود ببندش
+                    if (soundsPanel.uploadDialogOpen) {
+                        soundsPanel.uploadDialogOpen = false;
+                        soundsPanel.uploadEditing    = false;
+                        soundsPanel.uploadPathInput  = "";
+                        SDL_StopTextInput();
+                        continue;
+                    }
                     Uint32 flags = SDL_GetWindowFlags(window);
                     if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
                         SDL_SetWindowFullscreen(window, 0);
@@ -305,20 +351,70 @@ int main(int argc, char* argv[]) {
                         continue;
                     }
                 }
+
+                // ── ورودی keyboard برای دیالوگ آپلود ─────────────────────────
+                if (soundsPanel.uploadDialogOpen && soundsPanel.uploadEditing) {
+                    if (e.key.keysym.sym == SDLK_RETURN ||
+                        e.key.keysym.sym == SDLK_KP_ENTER) {
+                        // تأیید آپلود
+                        if (!soundsPanel.uploadPathInput.empty()) {
+                            SoundClip nc;
+                            std::string path = soundsPanel.uploadPathInput;
+                            size_t slash = path.find_last_of("/\\");
+                            std::string fname = (slash != std::string::npos)
+                                                ? path.substr(slash + 1) : path;
+                            size_t dot = fname.find_last_of('.');
+                            nc.name     = (dot != std::string::npos)
+                                          ? fname.substr(0, dot) : fname;
+                            nc.filePath = path;
+                            nc.volume   = 100.0f;
+                            nc.chunk    = nullptr;
+                            nc.channel  = -1;
+                            nc.isPlaying = false;
+                            audio_load(nc);
+                            soundsPanel.sounds.push_back(nc);
+                            soundsPanel.selectedIndex =
+                                (int)soundsPanel.sounds.size() - 1;
+                        }
+                        soundsPanel.uploadDialogOpen = false;
+                        soundsPanel.uploadEditing    = false;
+                        soundsPanel.uploadPathInput  = "";
+                        SDL_StopTextInput();
+                        continue;
+                    }
+                    if (e.key.keysym.sym == SDLK_BACKSPACE &&
+                        !soundsPanel.uploadPathInput.empty()) {
+                        soundsPanel.uploadPathInput.pop_back();
+                        continue;
+                    }
+                    continue;
+                }
             }
 
+            // ── Text Input برای دیالوگ آپلود ──────────────────────────────────
+            if (e.type == SDL_TEXTINPUT) {
+                if (soundsPanel.uploadDialogOpen && soundsPanel.uploadEditing) {
+                    soundsPanel.uploadPathInput += e.text.text;
+                    continue;
+                }
+            }
+
+            // ── Costume editor ────────────────────────────────────────────────
             if (costumeEditor.isOpen) {
                 ce_handle_event(costumeEditor, e, renderer, &sprite);
                 continue;
             }
 
+            // ── Block input editing ───────────────────────────────────────────
             if (activeInput && e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER ||
+                if (e.key.keysym.sym == SDLK_RETURN ||
+                    e.key.keysym.sym == SDLK_KP_ENTER ||
                     e.key.keysym.sym == SDLK_ESCAPE) {
                     activeInput->editing = false;
                     activeInput = nullptr;
                     SDL_StopTextInput();
-                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !activeInput->value.empty()) {
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE &&
+                           !activeInput->value.empty()) {
                     activeInput->value.pop_back();
                 }
                 continue;
@@ -326,14 +422,17 @@ int main(int argc, char* argv[]) {
             if (activeInput && e.type == SDL_TEXTINPUT) {
                 std::string ch = e.text.text;
                 for (char c : ch) {
-                    if (std::isdigit(c) || c == '.' || (c == '-' && activeInput->value.empty()))
+                    if (std::isdigit(c) || c == '.' ||
+                        (c == '-' && activeInput->value.empty()))
                         activeInput->value += c;
                 }
                 continue;
             }
 
+            // ── Variable name dialog ──────────────────────────────────────────
             if (varsPanel.creating && e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                if (e.key.keysym.sym == SDLK_RETURN ||
+                    e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!varsPanel.newVarName.empty()) {
                         Variable nv;
                         nv.name = varsPanel.newVarName;
@@ -345,14 +444,15 @@ int main(int argc, char* argv[]) {
                         addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
                         addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
                     }
-                    varsPanel.creating = false;
+                    varsPanel.creating   = false;
                     varsPanel.newVarName = "";
                     SDL_StopTextInput();
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) {
-                    varsPanel.creating = false;
+                    varsPanel.creating   = false;
                     varsPanel.newVarName = "";
                     SDL_StopTextInput();
-                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !varsPanel.newVarName.empty()) {
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE &&
+                           !varsPanel.newVarName.empty()) {
                     varsPanel.newVarName.pop_back();
                 }
                 continue;
@@ -362,20 +462,23 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            // ── My Blocks name dialog ─────────────────────────────────────────
             if (myBlocksCreating && e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                if (e.key.keysym.sym == SDLK_RETURN ||
+                    e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!newBlockName.empty()) {
                         customBlocks.push_back(newBlockName);
                         addPB(BLOCK_MYBLOCKS, newBlockName);
                     }
                     myBlocksCreating = false;
-                    newBlockName = "";
+                    newBlockName     = "";
                     SDL_StopTextInput();
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) {
                     myBlocksCreating = false;
-                    newBlockName = "";
+                    newBlockName     = "";
                     SDL_StopTextInput();
-                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !newBlockName.empty()) {
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE &&
+                           !newBlockName.empty()) {
                     newBlockName.pop_back();
                 }
                 continue;
@@ -385,13 +488,24 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            // SCROLL
+            // ── Scroll ────────────────────────────────────────────────────────
             if (e.type == SDL_MOUSEWHEEL) {
                 int mx, my;
                 SDL_GetMouseState(&mx, &my);
+
+                // اسکرول پنل صداها
+                if (activeTab == TAB_SOUNDS &&
+                    mx >= 0 && mx < PALETTE_WIDTH &&
+                    my >= STAGE_Y) {
+                    soundsPanel.scrollOffset += e.wheel.y * 20;
+                    if (soundsPanel.scrollOffset > 0) soundsPanel.scrollOffset = 0;
+                    continue;
+                }
+
                 if (point_in_rect(mx, my, palette.blockListX, palette.blockListY,
                                   palette.blockListW, palette.blockListH))
                     handle_scroll_value(e, palette.scrollOffset);
+
                 if (costumePanel.visible &&
                     point_in_rect(mx, my, costumePanel.x, costumePanel.y,
                                   costumePanel.w, costumePanel.h)) {
@@ -400,9 +514,15 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // MOUSE DOWN
+            // ── Mouse Down ────────────────────────────────────────────────────
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
                 int mx = e.button.x, my = e.button.y;
+
+                // اگه دیالوگ آپلود باز است اول اون رو handle کن
+                if (soundsPanel.uploadDialogOpen) {
+                    handle_upload_dialog_click(mx, my, soundsPanel, fontSmall);
+                    continue;
+                }
 
                 if (activeInput) {
                     activeInput->editing = false;
@@ -431,18 +551,61 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                if (point_in_rect(mx, my, playBtn.x, playBtn.y, playBtn.w, playBtn.h)) {
+                // ── کلیک‌های مخصوص TAB_SOUNDS ────────────────────────────────
+                if (activeTab == TAB_SOUNDS) {
+                    // پنل چپ (لیست صداها + دکمه‌ها)
+                    if (mx >= 0 && mx < PALETTE_WIDTH && my >= STAGE_Y) {
+                        handle_sounds_panel_click(mx, my, soundsPanel);
+                        continue;
+                    }
+                    // workspace صداها (دکمه‌های Play/Stop بزرگ)
+                    if (soundsPanel.selectedIndex >= 0 &&
+                        soundsPanel.selectedIndex < (int)soundsPanel.sounds.size()) {
+
+                        SoundClip& sc = soundsPanel.sounds[soundsPanel.selectedIndex];
+                        int wx2 = WORKSPACE_X, wy2 = STAGE_Y;
+                        int ww2 = WORKSPACE_W;
+
+                        // bigPlay
+                        SDL_Rect bigPlay = {wx2 + 20, wy2 + 220, 80, 36};
+                        if (point_in_rect(mx, my,
+                            bigPlay.x, bigPlay.y, bigPlay.w, bigPlay.h)) {
+                            if (sc.isPlaying)
+                                audio_stop(sc);
+                            else {
+                                audio_play(sc);
+                                if (sc.channel >= 0)
+                                    Mix_Volume(sc.channel,
+                                        (int)(sc.volume / 100.0f * MIX_MAX_VOLUME));
+                            }
+                            continue;
+                        }
+                        // bigStop
+                        SDL_Rect bigStop = {wx2 + 112, wy2 + 220, 80, 36};
+                        if (point_in_rect(mx, my,
+                            bigStop.x, bigStop.y, bigStop.w, bigStop.h)) {
+                            audio_stop(sc);
+                            continue;
+                        }
+                    }
+                    continue; // بقیه کلیک‌ها در TAB_SOUNDS ignore
+                }
+
+                // ── Play / Stop script ────────────────────────────────────────
+                if (point_in_rect(mx, my, playBtn.x, playBtn.y,
+                                  playBtn.w, playBtn.h)) {
                     Block* s = find_script_start(workspaceBlocks);
                     if (s) scriptRunner.start(s, &varsPanel.variables);
                 }
-                else if (point_in_rect(mx, my, stopBtn.x, stopBtn.y, stopBtn.w, stopBtn.h)) {
+                else if (point_in_rect(mx, my, stopBtn.x, stopBtn.y,
+                                       stopBtn.w, stopBtn.h)) {
                     scriptRunner.stop();
                     sprite.sayText = ""; sprite.sayTimer = 0;
                 }
                 else if (isVarCat && makeVarBtn.w > 0 &&
                          point_in_rect(mx, my, makeVarBtn.x, makeVarBtn.y,
                                        makeVarBtn.w, makeVarBtn.h)) {
-                    varsPanel.creating = true;
+                    varsPanel.creating   = true;
                     varsPanel.newVarName = "";
                     SDL_StartTextInput();
                     continue;
@@ -451,7 +614,7 @@ int main(int argc, char* argv[]) {
                          point_in_rect(mx, my, makeBlockBtn.x, makeBlockBtn.y,
                                        makeBlockBtn.w, makeBlockBtn.h)) {
                     myBlocksCreating = true;
-                    newBlockName = "";
+                    newBlockName     = "";
                     SDL_StartTextInput();
                     continue;
                 }
@@ -459,13 +622,14 @@ int main(int argc, char* argv[]) {
                 if (costumePanel.visible &&
                     point_in_rect(mx, my, costumePanel.x, costumePanel.y,
                                   costumePanel.w, costumePanel.h)) {
-                    int itemH = COSTUME_THUMB + 24 + 4;
-                    int relY  = my - costumePanel.y - 36 - costumePanel.scrollOffset;
+                    int itemH2 = COSTUME_THUMB + 24 + 4;
+                    int relY   = my - costumePanel.y - 36 - costumePanel.scrollOffset;
                     if (relY >= 0) {
-                        int idx = relY / itemH;
+                        int idx = relY / itemH2;
                         if (idx >= 0 && idx < (int)sprite.costumes.size()) {
                             Uint32 now = SDL_GetTicks();
-                            if (idx == lastCostumeClickIdx && (now - lastCostumeClickTime) < 400) {
+                            if (idx == lastCostumeClickIdx &&
+                                (now - lastCostumeClickTime) < 400) {
                                 ce_open(costumeEditor, renderer, &sprite, idx);
                                 lastCostumeClickTime = 0;
                                 lastCostumeClickIdx  = -1;
@@ -490,8 +654,9 @@ int main(int argc, char* argv[]) {
                     if (clicked) {
                         Block* nb = clone_block(clicked);
                         nb->x = mx - nb->w/2; nb->y = my - nb->h/2;
-                        nb->isDragging = true;
-                        nb->dragOffsetX = nb->w/2; nb->dragOffsetY = nb->h/2;
+                        nb->isDragging   = true;
+                        nb->dragOffsetX  = nb->w/2;
+                        nb->dragOffsetY  = nb->h/2;
                         workspaceBlocks.push_back(nb);
                         draggedBlock = nb;
                     }
@@ -502,32 +667,43 @@ int main(int argc, char* argv[]) {
                     if (clicked_inp) {
                         activeInput = clicked_inp;
                         activeInput->editing = true;
-                        activeInput->value = "";
+                        activeInput->value   = "";
                         SDL_StartTextInput();
                         continue;
                     }
                     handle_mouse_down(e, workspaceBlocks, &draggedBlock);
                 }
             }
-            else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
+            else if (e.type == SDL_MOUSEBUTTONUP &&
+                     e.button.button == SDL_BUTTON_LEFT) {
                 handle_mouse_up(&draggedBlock, workspaceBlocks, workspace);
             }
             else if (e.type == SDL_MOUSEMOTION) {
                 handle_mouse_motion(e, &draggedBlock, workspace);
             }
-        }
+        } // end event loop
 
+        // ── Update ────────────────────────────────────────────────────────────
         layout_palette_blocks(paletteBlocks, palette);
         scriptRunner.update(&sprite);
-        if (sprite.sayTimer > 0) { sprite.sayTimer--; if (sprite.sayTimer == 0) sprite.sayText = ""; }
+        if (sprite.sayTimer > 0) {
+            sprite.sayTimer--;
+            if (sprite.sayTimer == 0) sprite.sayText = "";
+        }
+
+        // به‌روزرسانی وضعیت پخش صداها
+        audio_update(soundsPanel);
 
         isVarCat   = (palette.activeCategory == CAT_VARIABLES);
         isMyBlocks = (palette.activeCategory == CAT_MYBLOCKS);
 
-        // ── RENDER ────────────────────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════════════
+        //  RENDER
+        // ═══════════════════════════════════════════════════════════════════════
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
+        // header bar
         SDL_SetRenderDrawColor(renderer,
             COLOR_HEADER_BAR.r, COLOR_HEADER_BAR.g, COLOR_HEADER_BAR.b, 255);
         SDL_Rect headerBar = { 0, 0, SCREEN_WIDTH, HEADER_H };
@@ -536,25 +712,25 @@ int main(int argc, char* argv[]) {
         draw_toolbar_icons(renderer, fontSmall,
                            gearBtn, notesBtn, penBtn, bulbBtn,
                            saveIconBtn, loadIconBtn);
-
         draw_tab_bar(renderer, fontSmall, activeTab);
 
+        // ── TAB_CODE ──────────────────────────────────────────────────────────
         if (activeTab == TAB_CODE) {
             draw_category_bar(renderer, fontSmall, palette);
             string activeName; SDL_Color activeCol;
             getActiveCatInfo(activeName, activeCol);
 
             if (isVarCat) {
-                draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
-                                       true, &makeVarBtn);
+                draw_block_list_header(renderer, fontBig, palette,
+                                       activeName, activeCol, true, &makeVarBtn);
                 makeBlockBtn = {0,0,0,0};
             } else if (isMyBlocks) {
-                draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
-                                       true, &makeBlockBtn);
+                draw_block_list_header(renderer, fontBig, palette,
+                                       activeName, activeCol, true, &makeBlockBtn);
                 makeVarBtn = {0,0,0,0};
             } else {
-                draw_block_list_header(renderer, fontBig, palette, activeName, activeCol,
-                                       false, nullptr);
+                draw_block_list_header(renderer, fontBig, palette,
+                                       activeName, activeCol, false, nullptr);
                 makeVarBtn   = {0,0,0,0};
                 makeBlockBtn = {0,0,0,0};
             }
@@ -563,16 +739,19 @@ int main(int argc, char* argv[]) {
                 if (block_matches_category(b, palette.activeCategory))
                     draw_block(renderer, fontSmall, b);
         }
+        // ── TAB_COSTUMES ──────────────────────────────────────────────────────
         else if (activeTab == TAB_COSTUMES) {
             SDL_SetRenderDrawColor(renderer, 245, 240, 255, 255);
             SDL_Rect leftPanel = {0, STAGE_Y, PALETTE_WIDTH, SCREEN_HEIGHT - STAGE_Y};
             SDL_RenderFillRect(renderer, &leftPanel);
 
-            SDL_SetRenderDrawColor(renderer, COLOR_LOOKS.r, COLOR_LOOKS.g, COLOR_LOOKS.b, 255);
+            SDL_SetRenderDrawColor(renderer,
+                COLOR_LOOKS.r, COLOR_LOOKS.g, COLOR_LOOKS.b, 255);
             SDL_Rect panHdr = {0, STAGE_Y, PALETTE_WIDTH, 32};
             SDL_RenderFillRect(renderer, &panHdr);
             if (fontBig)
-                draw_text_centered(renderer, fontBig, "Costumes", panHdr, COLOR_TEXT_WHITE);
+                draw_text_centered(renderer, fontBig, "Costumes",
+                                   panHdr, COLOR_TEXT_WHITE);
 
             int cy2 = STAGE_Y + 38;
             for (int i = 0; i < (int)sprite.costumes.size(); i++) {
@@ -585,8 +764,10 @@ int main(int argc, char* argv[]) {
                     sel?80:180, sel?100:180, sel?220:200, 255);
                 SDL_RenderDrawRect(renderer, &row);
                 if (fontSmall) {
-                    std::string lbl = std::to_string(i+1) + ". " + sprite.costumes[i].name;
-                    draw_text(renderer, fontSmall, lbl, 10, cy2+14, COLOR_TEXT_DARK);
+                    std::string lbl = std::to_string(i+1) + ". " +
+                                      sprite.costumes[i].name;
+                    draw_text(renderer, fontSmall, lbl,
+                              10, cy2+14, COLOR_TEXT_DARK);
                 }
                 cy2 += 54;
             }
@@ -594,58 +775,64 @@ int main(int argc, char* argv[]) {
                 draw_text(renderer, fontSmall, "Click a costume to edit",
                           6, cy2+4, {150,120,180,255});
         }
+        // ── TAB_SOUNDS ────────────────────────────────────────────────────────
         else if (activeTab == TAB_SOUNDS) {
-            SDL_SetRenderDrawColor(renderer, 250, 240, 255, 255);
-            SDL_Rect leftPanel = {0, STAGE_Y, PALETTE_WIDTH, SCREEN_HEIGHT - STAGE_Y};
-            SDL_RenderFillRect(renderer, &leftPanel);
-
-            SDL_SetRenderDrawColor(renderer,
-                COLOR_SOUND.r, COLOR_SOUND.g, COLOR_SOUND.b, 255);
-            SDL_Rect panHdr = {0, STAGE_Y, PALETTE_WIDTH, 32};
-            SDL_RenderFillRect(renderer, &panHdr);
-            if (fontBig)
-                draw_text_centered(renderer, fontBig, "Sounds", panHdr, COLOR_TEXT_WHITE);
-            if (fontSmall)
-                draw_text(renderer, fontSmall, "No sounds yet",
-                          16, STAGE_Y + 50, {150,120,180,255});
+            // پنل چپ: لیست صداها
+            draw_sounds_left_panel(renderer, fontSmall, fontBig, soundsPanel);
+            // پنل راست: waveform و کنترل‌ها
+            draw_sounds_workspace(renderer, fontSmall, fontBig, soundsPanel);
+            // دیالوگ آپلود (اگه باز بود)
+            draw_upload_dialog(renderer, fontSmall, fontBig, soundsPanel);
         }
 
-        draw_workspace_bg(renderer, workspace);
-        for (Block* b : workspaceBlocks) {
-            update_block_input_rects(b);
-            draw_block(renderer, fontSmall, b);
+        // ── workspace (فقط در TAB_CODE نمایش داده می‌شه) ─────────────────────
+        if (activeTab == TAB_CODE) {
+            draw_workspace_bg(renderer, workspace);
+            for (Block* b : workspaceBlocks) {
+                update_block_input_rects(b);
+                draw_block(renderer, fontSmall, b);
+            }
+
+            // دیالوگ‌های نام‌گذاری
+            auto draw_name_dialog = [&](const string& title,
+                                        const string& inputText) {
+                int ox = workspace.x + workspace.w/2 - 160;
+                int oy = workspace.y + workspace.h/2 - 40;
+                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 120);
+                SDL_Rect overlay = {workspace.x, workspace.y,
+                                    workspace.w, workspace.h};
+                SDL_RenderFillRect(renderer, &overlay);
+                SDL_SetRenderDrawColor(renderer, 250, 250, 255, 255);
+                SDL_Rect box = {ox, oy, 320, 80};
+                SDL_RenderFillRect(renderer, &box);
+                SDL_SetRenderDrawColor(renderer, 150, 150, 200, 255);
+                SDL_RenderDrawRect(renderer, &box);
+                if (fontBig)
+                    draw_text(renderer, fontBig, title,
+                              ox+12, oy+10, COLOR_TEXT_DARK);
+                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+                SDL_Rect field = {ox+12, oy+34, 220, 26};
+                SDL_RenderFillRect(renderer, &field);
+                SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
+                SDL_RenderDrawRect(renderer, &field);
+                if (fontSmall)
+                    draw_text(renderer, fontSmall, inputText + "|",
+                              ox+16, oy+40, COLOR_TEXT_DARK);
+                SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
+                SDL_Rect okBtn2 = {ox+244, oy+34, 64, 26};
+                SDL_RenderFillRect(renderer, &okBtn2);
+                if (fontSmall)
+                    draw_text_centered(renderer, fontSmall, "OK",
+                                       okBtn2, COLOR_TEXT_WHITE);
+            };
+
+            if (varsPanel.creating)
+                draw_name_dialog("New Variable Name:", varsPanel.newVarName);
+            if (myBlocksCreating)
+                draw_name_dialog("Block Name:", newBlockName);
         }
 
-        auto draw_name_dialog = [&](const string& title, const string& inputText) {
-            int ox = workspace.x + workspace.w/2 - 160;
-            int oy = workspace.y + workspace.h/2 - 40;
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 120);
-            SDL_Rect overlay = {workspace.x, workspace.y, workspace.w, workspace.h};
-            SDL_RenderFillRect(renderer, &overlay);
-            SDL_SetRenderDrawColor(renderer, 250, 250, 255, 255);
-            SDL_Rect box = {ox, oy, 320, 80};
-            SDL_RenderFillRect(renderer, &box);
-            SDL_SetRenderDrawColor(renderer, 150, 150, 200, 255);
-            SDL_RenderDrawRect(renderer, &box);
-            if (fontBig) draw_text(renderer, fontBig, title, ox+12, oy+10, COLOR_TEXT_DARK);
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_Rect field = {ox+12, oy+34, 220, 26};
-            SDL_RenderFillRect(renderer, &field);
-            SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
-            SDL_RenderDrawRect(renderer, &field);
-            if (fontSmall)
-                draw_text(renderer, fontSmall, inputText + "|", ox+16, oy+40, COLOR_TEXT_DARK);
-            SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);
-            SDL_Rect okBtn = {ox+244, oy+34, 64, 26};
-            SDL_RenderFillRect(renderer, &okBtn);
-            if (fontSmall) draw_text_centered(renderer, fontSmall, "OK", okBtn, COLOR_TEXT_WHITE);
-        };
-
-        if (varsPanel.creating)
-            draw_name_dialog("New Variable Name:", varsPanel.newVarName);
-        if (myBlocksCreating)
-            draw_name_dialog("Block Name:", newBlockName);
-
+        // ── Stage و Sprite همیشه رندر می‌شن ──────────────────────────────────
         draw_stage(renderer, &stage);
         draw_sprite(renderer, &sprite, &stage, fontSmall);
         draw_operator_result(renderer, fontSmall, &stage);
@@ -660,18 +847,26 @@ int main(int argc, char* argv[]) {
         SDL_RenderPresent(renderer);
     }
 
-    // Cleanup
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  CLEANUP
+    // ═══════════════════════════════════════════════════════════════════════════
+    audio_free_all(soundsPanel);
+    audio_quit();
+
     if (costumeEditor.canvasTex)  SDL_DestroyTexture(costumeEditor.canvasTex);
     if (costumeEditor.canvasSurf) SDL_FreeSurface(costumeEditor.canvasSurf);
     for (auto b : paletteBlocks)   delete b;
     for (auto b : workspaceBlocks) delete b;
-    for (auto& c : sprite.costumes) if (c.texture) SDL_DestroyTexture(c.texture);
+    for (auto& c : sprite.costumes)
+        if (c.texture) SDL_DestroyTexture(c.texture);
     if (playTex) SDL_DestroyTexture(playTex);
     if (stopTex) SDL_DestroyTexture(stopTex);
     TTF_CloseFont(fontSmall);
     if (fontBig) TTF_CloseFont(fontBig);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    TTF_Quit(); IMG_Quit(); SDL_Quit();
+    TTF_Quit();
+    IMG_Quit();
+    SDL_Quit();
     return 0;
 }

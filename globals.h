@@ -7,6 +7,7 @@
 
 #include <SDL2/SDL_pixels.h>
 #include <cmath>
+#include "structs.h"
 
 const int SCREEN_WIDTH  = 1280;
 const int SCREEN_HEIGHT = 720;
@@ -79,5 +80,5 @@ const SDL_Color COLOR_SCRATCH_PURPLE = {106, 74, 167, 255};
 const SDL_Color COLOR_HEADER_BAR   = {100, 65,  165, 255};
 const SDL_Color COLOR_TAB_ACTIVE   = {255, 255, 255, 255};
 const SDL_Color COLOR_TAB_INACTIVE = {210, 200, 230, 255};
-
+extern SoundsPanel* g_soundsPanel;
 #endif
