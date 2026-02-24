@@ -6,7 +6,7 @@ using namespace std;
 #include <vector>
 #include <map>
 #include <SDL2/SDL.h>
-
+#include <SDL2/SDL_mixer.h>
 enum BlockType {
     BLOCK_EVENT, BLOCK_MOTION, BLOCK_LOOKS, BLOCK_CONTROL,
     BLOCK_SOUND, BLOCK_SENSING, BLOCK_OPERATORS, BLOCK_VARIABLES, BLOCK_MYBLOCKS
@@ -104,6 +104,31 @@ struct BlockToken {
     string text;
     bool   editable;
     int    x, w;
+};
+
+
+
+struct SoundClip {
+    std::string name;
+    std::string filePath;
+    Mix_Chunk*  chunk       = nullptr;
+    float       durationSecs = 0.0f;
+    int         channel     = -1;
+    bool        isPlaying   = false;
+    float       volume      = 100.0f; // 0-100
+};
+
+struct SoundsPanel {
+    int  x = 0, y = 0, w = 0, h = 0;
+    bool visible = true;
+    int  scrollOffset  = 0;
+    int  selectedIndex = -1;
+    std::vector<SoundClip> sounds;
+
+    // upload dialog state
+    bool        uploadDialogOpen = false;
+    std::string uploadPathInput;
+    bool        uploadEditing    = false;
 };
 
 #endif

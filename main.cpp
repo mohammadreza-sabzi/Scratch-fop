@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
     palette.blockListW = BLOCK_LIST_W;
     palette.blockListH = SCREEN_HEIGHT - STAGE_Y;
 
-    int iy = 16;
+    int iy = STAGE_Y+8;
     auto addCat = [&](CategoryType t, const string& n, SDL_Color col) {
         Category c; c.type = t; c.name = n; c.color = col;
         c.iconRect = {0, iy, CAT_ICON_W, CAT_ITEM_H};
