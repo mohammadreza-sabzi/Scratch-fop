@@ -155,8 +155,6 @@ inline bool tab_bar_click(int mx, int my, ActiveTab& active)
     return false;
 }
 
-// ─── helper: escape فاصله در مقادیر ─────────────────────────────────────────
-// چون متن بلاک‌ها ممکنه فاصله داشته باشن، از | به عنوان جداکننده استفاده میکنیم
 
 inline std::string escape_str(const std::string& s) {
     // جایگزینی \n با \\n و | با \pipe
@@ -183,7 +181,6 @@ inline std::string unescape_str(const std::string& s) {
     return out;
 }
 
-// ─── Save ─────────────────────────────────────────────────────────────────────
 inline bool save_project(const std::string& path,
                           const std::vector<Block*>& wsBlocks,
                           const VariablesPanel& vars)
@@ -197,7 +194,6 @@ inline bool save_project(const std::string& path,
         if (!b) continue;
         int prevId = b->prev ? b->prev->id : -1;
 
-        // فرمت: BLOCK|id|type|x|y|prevId|text
         f << "BLOCK|"
           << b->id       << "|"
           << (int)b->type << "|"
@@ -206,7 +202,6 @@ inline bool save_project(const std::string& path,
           << prevId      << "|"
           << escape_str(b->text) << "\n";
 
-        // فرمت: INPUT|blockId|index|value
         for (const auto& inp : b->inputs) {
             f << "INPUT|"
               << b->id      << "|"
@@ -215,7 +210,6 @@ inline bool save_project(const std::string& path,
         }
     }
 
-    // فرمت: VAR|name|value|showOnStage
     for (const auto& v : vars.variables) {
         f << "VAR|"
           << escape_str(v.name) << "|"
@@ -227,7 +221,6 @@ inline bool save_project(const std::string& path,
     return true;
 }
 
-// ─── Load ─────────────────────────────────────────────────────────────────────
 inline bool load_project(const std::string& path,
                           std::vector<Block*>& wsBlocks,
                           VariablesPanel& vars,
@@ -263,7 +256,6 @@ inline bool load_project(const std::string& path,
 
         const std::string& token = parts[0];
 
-        // ── BLOCK ──────────────────────────────────────────────────────────
         if (token == "BLOCK" && parts.size() >= 7) {
             int  id      = std::stoi(parts[1]);
             int  typeInt = std::stoi(parts[2]);
@@ -306,7 +298,6 @@ inline bool load_project(const std::string& path,
 
             if (id >= nextId) nextId = id + 1;
         }
-        // ── INPUT ──────────────────────────────────────────────────────────
         else if (token == "INPUT" && parts.size() >= 4) {
             int blockId  = std::stoi(parts[1]);
             int inputIdx = std::stoi(parts[2]);
@@ -319,7 +310,6 @@ inline bool load_project(const std::string& path,
                     b->inputs[inputIdx].value = val;
             }
         }
-        // ── VAR ────────────────────────────────────────────────────────────
         else if (token == "VAR" && parts.size() >= 4) {
             std::string name = unescape_str(parts[1]);
             float val        = std::stof(parts[2]);
@@ -339,7 +329,6 @@ inline bool load_project(const std::string& path,
         }
     }
 
-    // ── بازسازی زنجیره next/prev ───────────────────────────────────────────
     for (auto& kv : idMap) {
         int    id  = kv.first;
         Block* b   = kv.second;

@@ -17,7 +17,6 @@
 
 using namespace std;
 
-// ── اشاره‌گر سراسری به پنل صداها ─────────────────────────────────────────────
 SoundsPanel* g_soundsPanel = nullptr;
 
 int main(int argc, char* argv[]) {
@@ -132,100 +131,117 @@ int main(int argc, char* argv[]) {
     vector<Block*> paletteBlocks;
     int bid = 1;
     auto addPB = [&](BlockType t, const string& txt) {
-        Block* b = new Block{bid++, t, txt, 0,0,BLOCK_W,BLOCK_H,false,0,0,nullptr,nullptr};
+        Block* b = new Block();
+        b->id = bid++;
+        b->type = t;
+        b->text = txt;
+        b->x = 0; b->y = 0;
+        b->w = BLOCK_W; b->h = BLOCK_H;
+        b->isDragging = false;
+        b->dragOffsetX = 0; b->dragOffsetY = 0;
+        b->next = nullptr; b->prev = nullptr;
+        b->isCShaped  = false;
+        b->innerFirst = nullptr; b->innerLast = nullptr;
+        b->elseFirst  = nullptr;
+        b->hasElse    = false;
+        b->innerH = 40; b->elseH = 40;
         init_block_inputs(b);
         paletteBlocks.push_back(b);
     };
 
-    addPB(BLOCK_MOTION, "move 10 steps");
-    addPB(BLOCK_MOTION, "turn 15 degrees");
-    addPB(BLOCK_MOTION, "turn left 15 degrees");
-    addPB(BLOCK_MOTION, "go to x:0 y:0");
-    addPB(BLOCK_MOTION, "go to random position");
-    addPB(BLOCK_MOTION, "go to mouse-pointer");
-    addPB(BLOCK_MOTION, "glide 1 secs to x:0 y:0");
-    addPB(BLOCK_MOTION, "point in direction 90");
-    addPB(BLOCK_MOTION, "point towards mouse-pointer");
-    addPB(BLOCK_MOTION, "change x by 10");
-    addPB(BLOCK_MOTION, "set x to 0");
-    addPB(BLOCK_MOTION, "change y by 10");
-    addPB(BLOCK_MOTION, "set y to 0");
-    addPB(BLOCK_MOTION, "if on edge, bounce");
-    addPB(BLOCK_LOOKS, "say Hello!");
-    addPB(BLOCK_LOOKS, "say Hello! for 2 secs");
-    addPB(BLOCK_LOOKS, "think Hmm...");
-    addPB(BLOCK_LOOKS, "show");
-    addPB(BLOCK_LOOKS, "hide");
-    addPB(BLOCK_LOOKS, "next costume");
-    addPB(BLOCK_LOOKS, "switch costume to 0");
-    addPB(BLOCK_LOOKS, "set size to 100");
-    addPB(BLOCK_LOOKS, "change size by 10");
-    addPB(BLOCK_SOUND, "play sound Meow");
-    addPB(BLOCK_SOUND, "play sound Meow until done");
-    addPB(BLOCK_SOUND, "stop all sounds");
-    addPB(BLOCK_SOUND, "change volume by 10");
-    addPB(BLOCK_SOUND, "change volume by -10");
-    addPB(BLOCK_SOUND, "set volume to 100");
-    addPB(BLOCK_SOUND, "change pitch effect by 10");
-    addPB(BLOCK_SOUND, "set pitch effect to 100");
-    addPB(BLOCK_SOUND, "clear sound effects");
-    addPB(BLOCK_EVENT, "when flag clicked");
-    addPB(BLOCK_EVENT, "when key pressed");
-    addPB(BLOCK_EVENT, "when sprite clicked");
-    addPB(BLOCK_EVENT, "when backdrop switches to");
-    addPB(BLOCK_EVENT, "broadcast message");
-    addPB(BLOCK_EVENT, "broadcast message and wait");
-    addPB(BLOCK_CONTROL, "wait 1 secs");
-    addPB(BLOCK_CONTROL, "repeat 10");
-    addPB(BLOCK_CONTROL, "repeat 3");
-    addPB(BLOCK_CONTROL, "forever");
-    addPB(BLOCK_CONTROL, "if <> then");
-    addPB(BLOCK_CONTROL, "if <> then else");
-    addPB(BLOCK_CONTROL, "wait until <>");
-    addPB(BLOCK_CONTROL, "stop all");
-    addPB(BLOCK_CONTROL, "stop this script");
-    addPB(BLOCK_CONTROL, "stop other scripts");
-    addPB(BLOCK_SENSING, "ask What's your name? and wait");
-    addPB(BLOCK_SENSING, "answer");
-    addPB(BLOCK_SENSING, "touching mouse-pointer?");
-    addPB(BLOCK_SENSING, "touching edge?");
-    addPB(BLOCK_SENSING, "touching color?");
-    addPB(BLOCK_SENSING, "key space pressed?");
-    addPB(BLOCK_SENSING, "mouse down?");
-    addPB(BLOCK_SENSING, "mouse x");
-    addPB(BLOCK_SENSING, "mouse y");
-    addPB(BLOCK_SENSING, "loudness");
-    addPB(BLOCK_SENSING, "timer");
-    addPB(BLOCK_SENSING, "reset timer");
-    addPB(BLOCK_SENSING, "distance to mouse-pointer");
-    addPB(BLOCK_OPERATORS, "() + ()");
-    addPB(BLOCK_OPERATORS, "() - ()");
-    addPB(BLOCK_OPERATORS, "() * ()");
-    addPB(BLOCK_OPERATORS, "() / ()");
-    addPB(BLOCK_OPERATORS, "() mod ()");
-    addPB(BLOCK_OPERATORS, "() < ()");
-    addPB(BLOCK_OPERATORS, "() > ()");
-    addPB(BLOCK_OPERATORS, "() = ()");
-    addPB(BLOCK_OPERATORS, "<> and <>");
-    addPB(BLOCK_OPERATORS, "<> or <>");
-    addPB(BLOCK_OPERATORS, "not <>");
-    addPB(BLOCK_OPERATORS, "pick random 1 to 10");
-    addPB(BLOCK_OPERATORS, "pick random 1 to 360");
-    addPB(BLOCK_OPERATORS, "round ()");
-    addPB(BLOCK_OPERATORS, "abs of ()");
-    addPB(BLOCK_OPERATORS, "sqrt of ()");
-    addPB(BLOCK_OPERATORS, "floor of ()");
-    addPB(BLOCK_OPERATORS, "ceiling of ()");
-    addPB(BLOCK_OPERATORS, "sin of ()");
-    addPB(BLOCK_OPERATORS, "cos of ()");
-    addPB(BLOCK_OPERATORS, "join hello world");
-    addPB(BLOCK_OPERATORS, "letter 1 of hello");
-    addPB(BLOCK_OPERATORS, "length of hello");
-    addPB(BLOCK_OPERATORS, "contains hello world");
-    addPB(BLOCK_VARIABLES, "set score to 0");
-    addPB(BLOCK_VARIABLES, "change score by 1");
-    addPB(BLOCK_VARIABLES, "show variable score");
-    addPB(BLOCK_VARIABLES, "hide variable score");
+   // ── MOTION ──
+addPB(BLOCK_MOTION, "move () steps");
+addPB(BLOCK_MOTION, "turn right () degrees");
+addPB(BLOCK_MOTION, "turn left () degrees");
+addPB(BLOCK_MOTION, "go to x:() y:()");
+addPB(BLOCK_MOTION, "go to random position");
+addPB(BLOCK_MOTION, "go to mouse-pointer");
+addPB(BLOCK_MOTION, "glide () secs to x:() y:()");
+addPB(BLOCK_MOTION, "point in direction ()");
+addPB(BLOCK_MOTION, "point towards mouse-pointer");
+addPB(BLOCK_MOTION, "change x by ()");
+addPB(BLOCK_MOTION, "set x to ()");
+addPB(BLOCK_MOTION, "change y by ()");
+addPB(BLOCK_MOTION, "set y to ()");
+addPB(BLOCK_MOTION, "if on edge, bounce");
+
+// ── LOOKS ──
+addPB(BLOCK_LOOKS, "say ()");
+addPB(BLOCK_LOOKS, "say () for () secs");
+addPB(BLOCK_LOOKS, "think ()");
+addPB(BLOCK_LOOKS, "show");
+addPB(BLOCK_LOOKS, "hide");
+addPB(BLOCK_LOOKS, "next costume");
+addPB(BLOCK_LOOKS, "switch costume to ()");
+addPB(BLOCK_LOOKS, "set size to ()");
+addPB(BLOCK_LOOKS, "change size by ()");
+
+// ── SOUND ──
+addPB(BLOCK_SOUND, "play sound ()");
+addPB(BLOCK_SOUND, "play sound () until done");
+addPB(BLOCK_SOUND, "stop all sounds");
+addPB(BLOCK_SOUND, "change volume by ()");
+addPB(BLOCK_SOUND, "set volume to ()");
+addPB(BLOCK_SOUND, "clear sound effects");
+
+// ── EVENTS ──
+addPB(BLOCK_EVENT, "when flag clicked");
+addPB(BLOCK_EVENT, "when key pressed");
+addPB(BLOCK_EVENT, "when sprite clicked");
+
+// ── CONTROL ──
+addPB(BLOCK_CONTROL, "wait () secs");
+addPB(BLOCK_CONTROL, "repeat ()");
+addPB(BLOCK_CONTROL, "forever");
+addPB(BLOCK_CONTROL, "if <> then");
+addPB(BLOCK_CONTROL, "if <> then else");
+addPB(BLOCK_CONTROL, "wait until <>");
+addPB(BLOCK_CONTROL, "stop all");
+addPB(BLOCK_CONTROL, "stop this script");
+addPB(BLOCK_CONTROL, "stop other scripts");
+
+// ── SENSING ──
+addPB(BLOCK_SENSING, "ask () and wait");
+addPB(BLOCK_SENSING, "answer");
+addPB(BLOCK_SENSING, "touching mouse-pointer?");
+addPB(BLOCK_SENSING, "touching edge?");
+addPB(BLOCK_SENSING, "key space pressed?");
+addPB(BLOCK_SENSING, "mouse down?");
+addPB(BLOCK_SENSING, "mouse x");
+addPB(BLOCK_SENSING, "mouse y");
+addPB(BLOCK_SENSING, "timer");
+addPB(BLOCK_SENSING, "reset timer");
+
+// ── OPERATORS ──
+addPB(BLOCK_OPERATORS, "() + ()");
+addPB(BLOCK_OPERATORS, "() - ()");
+addPB(BLOCK_OPERATORS, "() * ()");
+addPB(BLOCK_OPERATORS, "() / ()");
+addPB(BLOCK_OPERATORS, "() mod ()");
+addPB(BLOCK_OPERATORS, "() < ()");
+addPB(BLOCK_OPERATORS, "() > ()");
+addPB(BLOCK_OPERATORS, "() = ()");
+addPB(BLOCK_OPERATORS, "<> and <>");
+addPB(BLOCK_OPERATORS, "<> or <>");
+addPB(BLOCK_OPERATORS, "not <>");
+addPB(BLOCK_OPERATORS, "pick random () to ()");
+addPB(BLOCK_OPERATORS, "round ()");
+addPB(BLOCK_OPERATORS, "abs of ()");
+addPB(BLOCK_OPERATORS, "sqrt of ()");
+addPB(BLOCK_OPERATORS, "floor of ()");
+addPB(BLOCK_OPERATORS, "ceiling of ()");
+addPB(BLOCK_OPERATORS, "sin of ()");
+addPB(BLOCK_OPERATORS, "cos of ()");
+addPB(BLOCK_OPERATORS, "tan of ()");
+addPB(BLOCK_OPERATORS, "join () ()");
+addPB(BLOCK_OPERATORS, "letter () of ()");
+addPB(BLOCK_OPERATORS, "length of ()");
+
+// ── VARIABLES ──
+addPB(BLOCK_VARIABLES, "set score to ()");
+addPB(BLOCK_VARIABLES, "change score by ()");
+addPB(BLOCK_VARIABLES, "show variable score");
+addPB(BLOCK_VARIABLES, "hide variable score");
 
     VariablesPanel varsPanel;
     varsPanel.x = 0; varsPanel.y = 0;
@@ -246,7 +262,6 @@ int main(int argc, char* argv[]) {
     costumePanel.selectedIndex = 0;
     costumePanel.visible       = true;
 
-    // ── پنل صداها ────────────────────────────────────────────────────────────
     SoundsPanel soundsPanel;
     soundsPanel.x = 0;
     soundsPanel.y = STAGE_Y;
@@ -258,7 +273,6 @@ int main(int argc, char* argv[]) {
     soundsPanel.uploadDialogOpen = false;
     soundsPanel.uploadEditing    = false;
 
-    // ── صداهای پیش‌فرض ───────────────────────────────────────────────────────
     auto addDefaultSound = [&](const char* name, const char* path) {
         SoundClip sc;
         sc.name     = name;
@@ -274,7 +288,6 @@ int main(int argc, char* argv[]) {
     addDefaultSound("Meow", "meow.wav");
     addDefaultSound("Drum", "drum.wav");
 
-    // ── اشاره‌گر سراسری ──────────────────────────────────────────────────────
     g_soundsPanel = &soundsPanel;
 
     SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 38, 32};
@@ -283,6 +296,8 @@ int main(int argc, char* argv[]) {
     vector<Block*> workspaceBlocks;
     Block* draggedBlock = nullptr;
     BlockInput* activeInput = nullptr;
+    std::string askInputText = "";   // متنی که کاربر در ask تایپ می‌کند
+    bool askInputActive = false;
     bool   quit         = false;
     SDL_Event e;
     ScriptRunner scriptRunner;
@@ -314,14 +329,10 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  MAIN LOOP
-    // ═══════════════════════════════════════════════════════════════════════════
     while (!quit) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) { quit = true; break; }
 
-            // ── Window events ─────────────────────────────────────────────────
             if (e.type == SDL_WINDOWEVENT) {
                 if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
                     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -329,14 +340,13 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // ── Keyboard ──────────────────────────────────────────────────────
             if (e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_f) {
                     toggle_fullscreen();
                     continue;
                 }
                 if (e.key.keysym.sym == SDLK_ESCAPE) {
-                    // اگه دیالوگ آپلود باز بود ببندش
+
                     if (soundsPanel.uploadDialogOpen) {
                         soundsPanel.uploadDialogOpen = false;
                         soundsPanel.uploadEditing    = false;
@@ -352,11 +362,10 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
-                // ── ورودی keyboard برای دیالوگ آپلود ─────────────────────────
                 if (soundsPanel.uploadDialogOpen && soundsPanel.uploadEditing) {
                     if (e.key.keysym.sym == SDLK_RETURN ||
                         e.key.keysym.sym == SDLK_KP_ENTER) {
-                        // تأیید آپلود
+
                         if (!soundsPanel.uploadPathInput.empty()) {
                             SoundClip nc;
                             std::string path = soundsPanel.uploadPathInput;
@@ -391,7 +400,6 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // ── Text Input برای دیالوگ آپلود ──────────────────────────────────
             if (e.type == SDL_TEXTINPUT) {
                 if (soundsPanel.uploadDialogOpen && soundsPanel.uploadEditing) {
                     soundsPanel.uploadPathInput += e.text.text;
@@ -399,24 +407,41 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // ── Costume editor ────────────────────────────────────────────────
             if (costumeEditor.isOpen) {
                 ce_handle_event(costumeEditor, e, renderer, &sprite);
                 continue;
             }
 
-            // ── Block input editing ───────────────────────────────────────────
-            if (activeInput && e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_RETURN ||
-                    e.key.keysym.sym == SDLK_KP_ENTER ||
-                    e.key.keysym.sym == SDLK_ESCAPE) {
-                    activeInput->editing = false;
-                    activeInput = nullptr;
-                    SDL_StopTextInput();
-                } else if (e.key.keysym.sym == SDLK_BACKSPACE &&
-                           !activeInput->value.empty()) {
-                    activeInput->value.pop_back();
+            // ─── handle ask/answer input ────────────────────────────────────────────
+            if (g_askPending) {
+                if (e.type == SDL_KEYDOWN) {
+                    if (e.key.keysym.sym == SDLK_RETURN ||
+                        e.key.keysym.sym == SDLK_KP_ENTER) {
+                        g_answer     = askInputText;
+                        g_askPending = false;
+                        askInputText = "";
+                        askInputActive = false;
+                        sprite.sayText = "";
+                        sprite.sayTimer = 0;
+                        SDL_StopTextInput();
+                        } else if (e.key.keysym.sym == SDLK_BACKSPACE &&
+                                   !askInputText.empty()) {
+                            askInputText.pop_back();
+                                   }
+                    continue;
                 }
+                if (e.type == SDL_TEXTINPUT) {
+                    askInputText += e.text.text;
+                    continue;
+                }
+                if (!askInputActive) {
+                    askInputActive = true;
+                    SDL_StartTextInput();
+                }
+            }
+
+            if (activeInput && e.type == SDL_TEXTINPUT) {
+                activeInput->value += e.text.text;
                 continue;
             }
             if (activeInput && e.type == SDL_TEXTINPUT) {
@@ -429,7 +454,6 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            // ── Variable name dialog ──────────────────────────────────────────
             if (varsPanel.creating && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN ||
                     e.key.keysym.sym == SDLK_KP_ENTER) {
@@ -462,7 +486,6 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            // ── My Blocks name dialog ─────────────────────────────────────────
             if (myBlocksCreating && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN ||
                     e.key.keysym.sym == SDLK_KP_ENTER) {
@@ -488,12 +511,10 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            // ── Scroll ────────────────────────────────────────────────────────
             if (e.type == SDL_MOUSEWHEEL) {
                 int mx, my;
                 SDL_GetMouseState(&mx, &my);
 
-                // اسکرول پنل صداها
                 if (activeTab == TAB_SOUNDS &&
                     mx >= 0 && mx < PALETTE_WIDTH &&
                     my >= STAGE_Y) {
@@ -514,11 +535,9 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // ── Mouse Down ────────────────────────────────────────────────────
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
                 int mx = e.button.x, my = e.button.y;
 
-                // اگه دیالوگ آپلود باز است اول اون رو handle کن
                 if (soundsPanel.uploadDialogOpen) {
                     handle_upload_dialog_click(mx, my, soundsPanel, fontSmall);
                     continue;
@@ -551,14 +570,11 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                // ── کلیک‌های مخصوص TAB_SOUNDS ────────────────────────────────
                 if (activeTab == TAB_SOUNDS) {
-                    // پنل چپ (لیست صداها + دکمه‌ها)
                     if (mx >= 0 && mx < PALETTE_WIDTH && my >= STAGE_Y) {
                         handle_sounds_panel_click(mx, my, soundsPanel);
                         continue;
                     }
-                    // workspace صداها (دکمه‌های Play/Stop بزرگ)
                     if (soundsPanel.selectedIndex >= 0 &&
                         soundsPanel.selectedIndex < (int)soundsPanel.sounds.size()) {
 
@@ -566,7 +582,6 @@ int main(int argc, char* argv[]) {
                         int wx2 = WORKSPACE_X, wy2 = STAGE_Y;
                         int ww2 = WORKSPACE_W;
 
-                        // bigPlay
                         SDL_Rect bigPlay = {wx2 + 20, wy2 + 220, 80, 36};
                         if (point_in_rect(mx, my,
                             bigPlay.x, bigPlay.y, bigPlay.w, bigPlay.h)) {
@@ -691,15 +706,11 @@ int main(int argc, char* argv[]) {
             if (sprite.sayTimer == 0) sprite.sayText = "";
         }
 
-        // به‌روزرسانی وضعیت پخش صداها
         audio_update(soundsPanel);
 
         isVarCat   = (palette.activeCategory == CAT_VARIABLES);
         isMyBlocks = (palette.activeCategory == CAT_MYBLOCKS);
 
-        // ═══════════════════════════════════════════════════════════════════════
-        //  RENDER
-        // ═══════════════════════════════════════════════════════════════════════
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
@@ -714,7 +725,6 @@ int main(int argc, char* argv[]) {
                            saveIconBtn, loadIconBtn);
         draw_tab_bar(renderer, fontSmall, activeTab);
 
-        // ── TAB_CODE ──────────────────────────────────────────────────────────
         if (activeTab == TAB_CODE) {
             draw_category_bar(renderer, fontSmall, palette);
             string activeName; SDL_Color activeCol;
@@ -739,7 +749,6 @@ int main(int argc, char* argv[]) {
                 if (block_matches_category(b, palette.activeCategory))
                     draw_block(renderer, fontSmall, b);
         }
-        // ── TAB_COSTUMES ──────────────────────────────────────────────────────
         else if (activeTab == TAB_COSTUMES) {
             SDL_SetRenderDrawColor(renderer, 245, 240, 255, 255);
             SDL_Rect leftPanel = {0, STAGE_Y, PALETTE_WIDTH, SCREEN_HEIGHT - STAGE_Y};
@@ -775,25 +784,42 @@ int main(int argc, char* argv[]) {
                 draw_text(renderer, fontSmall, "Click a costume to edit",
                           6, cy2+4, {150,120,180,255});
         }
-        // ── TAB_SOUNDS ────────────────────────────────────────────────────────
         else if (activeTab == TAB_SOUNDS) {
-            // پنل چپ: لیست صداها
+
             draw_sounds_left_panel(renderer, fontSmall, fontBig, soundsPanel);
-            // پنل راست: waveform و کنترل‌ها
             draw_sounds_workspace(renderer, fontSmall, fontBig, soundsPanel);
-            // دیالوگ آپلود (اگه باز بود)
             draw_upload_dialog(renderer, fontSmall, fontBig, soundsPanel);
         }
 
-        // ── workspace (فقط در TAB_CODE نمایش داده می‌شه) ─────────────────────
         if (activeTab == TAB_CODE) {
             draw_workspace_bg(renderer, workspace);
+            // ابتدا layout بلاک‌های داخل C ها
+            for (Block* b : workspaceBlocks) {
+                if (b->isCShaped) layout_inner_blocks(b);
+            }
+            // رندر همه بلاک‌ها
             for (Block* b : workspaceBlocks) {
                 update_block_input_rects(b);
                 draw_block(renderer, fontSmall, b);
+                // رندر بلاک‌های داخل C
+                if (b->isCShaped) {
+                    Block* inner = b->innerFirst;
+                    while (inner) {
+                        update_block_input_rects(inner);
+                        draw_block(renderer, fontSmall, inner);
+                        inner = inner->next;
+                    }
+                    if (b->hasElse) {
+                        Block* el = b->elseFirst;
+                        while (el) {
+                            update_block_input_rects(el);
+                            draw_block(renderer, fontSmall, el);
+                            el = el->next;
+                        }
+                    }
+                }
             }
 
-            // دیالوگ‌های نام‌گذاری
             auto draw_name_dialog = [&](const string& title,
                                         const string& inputText) {
                 int ox = workspace.x + workspace.w/2 - 160;
@@ -832,9 +858,12 @@ int main(int argc, char* argv[]) {
                 draw_name_dialog("Block Name:", newBlockName);
         }
 
-        // ── Stage و Sprite همیشه رندر می‌شن ──────────────────────────────────
         draw_stage(renderer, &stage);
         draw_sprite(renderer, &sprite, &stage, fontSmall);
+        // رندر ask input اگر فعال است
+        if (g_askPending) {
+            draw_ask_input(renderer, fontSmall, &stage, g_askQuestion, askInputText);
+        }
         draw_operator_result(renderer, fontSmall, &stage);
         draw_variable_monitors(renderer, fontSmall, varsPanel, &stage);
         draw_costume_panel(renderer, fontSmall, fontBig, costumePanel, &sprite);
@@ -847,9 +876,6 @@ int main(int argc, char* argv[]) {
         SDL_RenderPresent(renderer);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  CLEANUP
-    // ═══════════════════════════════════════════════════════════════════════════
     audio_free_all(soundsPanel);
     audio_quit();
 

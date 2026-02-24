@@ -7,6 +7,7 @@ using namespace std;
 #include <map>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
+
 enum BlockType {
     BLOCK_EVENT, BLOCK_MOTION, BLOCK_LOOKS, BLOCK_CONTROL,
     BLOCK_SOUND, BLOCK_SENSING, BLOCK_OPERATORS, BLOCK_VARIABLES, BLOCK_MYBLOCKS
@@ -32,9 +33,19 @@ struct Block {
     int x, y, w, h;
     bool isDragging;
     int dragOffsetX, dragOffsetY;
-    Block* next;
-    Block* prev;
+    Block* next;      // بلاک بعدی در زنجیر اصلی
+    Block* prev;      // بلاک قبلی در زنجیر اصلی
     std::vector<BlockInput> inputs;
+
+    // ── C-shaped block support ───────────────────────────────────────────────
+    bool   isCShaped    = false;   // آیا این بلاک C-شکل است؟
+    Block* innerFirst   = nullptr; // اولین بلاک داخل C
+    Block* innerLast    = nullptr; // آخرین بلاک داخل C  (برای snap)
+    int    innerH       = 36;      // ارتفاع فضای داخلی C (حداقل 36)
+    // برای بلاک if/else دو بخش داریم
+    Block* elseFirst    = nullptr;
+    int    elseH        = 36;
+    bool   hasElse      = false;
 };
 
 struct Stage {
@@ -106,8 +117,6 @@ struct BlockToken {
     int    x, w;
 };
 
-
-
 struct SoundClip {
     std::string name;
     std::string filePath;
@@ -132,4 +141,3 @@ struct SoundsPanel {
 };
 
 #endif
-

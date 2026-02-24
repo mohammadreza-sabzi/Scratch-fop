@@ -12,19 +12,26 @@
 #include "structs.h"
 #include "globals.h"
 
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-// ─── متغیرهای سراسری اسکریپت ────────────────────────────────────────────────
+// ─── متغیرهای سراسری ────────────────────────────────────────────────────────
 static std::map<std::string, float> g_vars;
-
-// ─── نتیجه آخرین عملیات Operator (برای نمایش روی Stage) ─────────────────────
-static float  g_lastOperatorResult = 0.0f;
-static bool   g_hasOperatorResult  = false;
+static float  g_lastOperatorResult  = 0.0f;
+static bool   g_hasOperatorResult   = false;
 static std::string g_operatorResultText = "";
 
-// ─── پارس اعداد از متن بلاک یا از inputs ─────────────────────────────────────
+// ask/answer
+static std::string g_answer         = "";
+static bool        g_askPending     = false;
+static std::string g_askQuestion    = "";
+
+// timer
+static Uint32 g_timerStart = 0;
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
 static float get_input_val(Block* b, int idx, float fallback = 0.0f) {
     if (idx < (int)b->inputs.size()) {
         try { return std::stof(b->inputs[idx].value); }
@@ -33,18 +40,15 @@ static float get_input_val(Block* b, int idx, float fallback = 0.0f) {
     return fallback;
 }
 
-static int parse_num(const std::string& txt,
-                     const std::string& after, int fallback = 0) {
-    size_t pos = txt.find(after);
-    if (pos == std::string::npos) return fallback;
-    pos += after.size();
-    while (pos < txt.size() && txt[pos] == ' ') pos++;
-    try { return std::stoi(txt.substr(pos)); }
-    catch (...) { return fallback; }
+static std::string get_input_str(Block* b, int idx,
+                                  const std::string& fallback = "") {
+    if (idx < (int)b->inputs.size())
+        return b->inputs[idx].value;
+    return fallback;
 }
 
 static float parse_float(const std::string& txt,
-                          const std::string& after, float fallback = 0.0f) {
+                           const std::string& after, float fallback = 0.0f) {
     size_t pos = txt.find(after);
     if (pos == std::string::npos) return fallback;
     pos += after.size();
@@ -54,12 +58,10 @@ static float parse_float(const std::string& txt,
 }
 
 static std::string float_to_str(float v) {
-    // اگر عدد صحیح است بدون اعشار نشان بده
     if (v == std::floor(v) && std::abs(v) < 1e9f)
         return std::to_string((long long)v);
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(4) << v;
-    // حذف صفرهای انتهایی
     std::string s = ss.str();
     size_t dot = s.find('.');
     if (dot != std::string::npos) {
@@ -73,15 +75,20 @@ static std::string float_to_str(float v) {
 }
 
 static void clamp_sprite(Sprite* s) {
-    if (s->x < 0) s->x = 0;
-    if (s->y < 0) s->y = 0;
-    if (s->x > STAGE_WIDTH  - s->w) s->x = (float)(STAGE_WIDTH  - s->w);
-    if (s->y > STAGE_HEIGHT - s->h) s->y = (float)(STAGE_HEIGHT - s->h);
+    float maxX = (float)(STAGE_WIDTH  - (int)(s->w * s->scale));
+    float maxY = (float)(STAGE_HEIGHT - (int)(s->h * s->scale));
+    if (s->x < 0)    s->x = 0;
+    if (s->y < 0)    s->y = 0;
+    if (s->x > maxX) s->x = maxX;
+    if (s->y > maxY) s->y = maxY;
 }
 
+// ─── LoopFrame برای repeat / forever / if ────────────────────────────────────
 struct LoopFrame {
-    Block* loopBody;
-    int    remaining;
+    Block*  loopBlock;   // خود بلاک C (repeat/forever/if)
+    Block*  current;     // بلاک جاری داخل C
+    int     remaining;   // تعداد تکرار باقی‌مانده (-1 = forever)
+    bool    inElse;      // آیا در شاخه else هستیم؟
 };
 
 // ─── ScriptRunner ─────────────────────────────────────────────────────────────
@@ -94,13 +101,17 @@ struct ScriptRunner {
     std::vector<LoopFrame> loopStack;
     std::vector<Variable>* vars = nullptr;
 
+    // برای ask/answer: pointer به Sprite جهت نمایش سوال
+    Sprite* askSprite = nullptr;
+
     void start(Block* first, std::vector<Variable>* varList = nullptr) {
         running = true; current = first;
         waitUntil = 0; waiting = false; saySilent = false;
         loopStack.clear();
         vars = varList;
-        g_hasOperatorResult = false;
+        g_hasOperatorResult  = false;
         g_operatorResultText = "";
+        g_timerStart = SDL_GetTicks();
         if (vars) for (auto& v : *vars) g_vars[v.name] = v.value;
     }
 
@@ -108,6 +119,7 @@ struct ScriptRunner {
         running = false; current = nullptr;
         waiting = false; saySilent = false;
         loopStack.clear();
+        g_askPending = false;
     }
 
     void syncVarsBack() {
@@ -120,6 +132,11 @@ struct ScriptRunner {
 
     void update(Sprite* sprite) {
         if (!running || !sprite) return;
+        askSprite = sprite;
+
+        // اگر ask در انتظار جواب است، صبر کن
+        if (g_askPending) return;
+
         Uint32 now = SDL_GetTicks();
         if (waiting) {
             if (now < waitUntil) return;
@@ -128,120 +145,151 @@ struct ScriptRunner {
                 sprite->sayText = ""; sprite->sayTimer = 0; saySilent = false;
             }
         }
-        if (!current) { running = false; syncVarsBack(); return; }
+        if (!current) {
+            // اگر داخل یک حلقه هستیم، برگرد
+            if (!loopStack.empty()) {
+                advance_loop(sprite);
+                return;
+            }
+            running = false; syncVarsBack(); return;
+        }
         bool jumped = execute_block(current, sprite, now);
-        if (!jumped) advance(current);
+        if (!jumped) advance(current, sprite);
         syncVarsBack();
     }
 
-    // ─── اجرای یک بلاک ────────────────────────────────────────────────────────
+    // ─── ارزیابی شرط (برای if / wait until) ──────────────────────────────
+    // فعلاً: input[0] != 0 → true
+    bool eval_condition(Block* b) {
+        if (b->inputs.empty()) return false;
+        float val = 0;
+        try { val = std::stof(b->inputs[0].value); } catch (...) {}
+        return val != 0.0f;
+    }
+
+    // ─── اجرای یک بلاک ────────────────────────────────────────────────────
     bool execute_block(Block* b, Sprite* sprite, Uint32 now) {
-        const std::string& txt = b->type != BLOCK_OPERATORS
-                                 ? b->text : b->text;
+        const std::string& txt = b->text;
 
         if (b->type == BLOCK_EVENT) return false;
 
-        // ── MOTION ────────────────────────────────────────────────────────────
+        // ── MOTION ──────────────────────────────────────────────────────────
         if (b->type == BLOCK_MOTION) {
             if (txt.find("move") != std::string::npos &&
                 txt.find("steps") != std::string::npos) {
-                float steps = b->inputs.empty()
-                              ? (float)parse_num(txt, "move ", 10)
-                              : get_input_val(b, 0, 10);
+                float steps = get_input_val(b, 0, 10);
                 double rad = (sprite->direction - 90.0) * M_PI / 180.0;
                 sprite->x += (float)(steps * std::cos(rad));
                 sprite->y += (float)(steps * std::sin(rad));
                 clamp_sprite(sprite);
             }
-            else if (txt.find("turn") != std::string::npos) {
-                float deg = b->inputs.empty()
-                            ? (float)parse_num(txt, "turn ", 15)
-                            : get_input_val(b, 0, 15);
-                if (txt.find("left") != std::string::npos)
-                    sprite->direction -= deg;
-                else
-                    sprite->direction += deg;
+            else if (txt.find("turn right") != std::string::npos ||
+                     (txt.find("turn") != std::string::npos &&
+                      txt.find("left") == std::string::npos)) {
+                float deg = get_input_val(b, 0, 15);
+                sprite->direction += deg;
+            }
+            else if (txt.find("turn left") != std::string::npos) {
+                float deg = get_input_val(b, 0, 15);
+                sprite->direction -= deg;
             }
             else if (txt.find("go to x:") != std::string::npos) {
-                float gx = (float)parse_num(txt, "x:", 0);
-                float gy = (float)parse_num(txt, "y:", 0);
-                sprite->x = STAGE_WIDTH  / 2.0f + gx - sprite->w / 2.0f;
-                sprite->y = STAGE_HEIGHT / 2.0f - gy - sprite->h / 2.0f;
+                float gx = get_input_val(b, 0, 0);
+                float gy = get_input_val(b, 1, 0);
+                sprite->x = STAGE_WIDTH  / 2.0f + gx - sprite->w * sprite->scale / 2.0f;
+                sprite->y = STAGE_HEIGHT / 2.0f - gy - sprite->h * sprite->scale / 2.0f;
                 clamp_sprite(sprite);
             }
+            else if (txt.find("go to random") != std::string::npos) {
+                sprite->x = (float)(rand() % (STAGE_WIDTH  - (int)(sprite->w * sprite->scale)));
+                sprite->y = (float)(rand() % (STAGE_HEIGHT - (int)(sprite->h * sprite->scale)));
+            }
+            else if (txt.find("go to mouse") != std::string::npos) {
+                int mx, my;
+                SDL_GetMouseState(&mx, &my);
+                // تبدیل از مختصات صفحه به stage
+                sprite->x = (float)(mx - STAGE_X) - sprite->w * sprite->scale / 2.0f;
+                sprite->y = (float)(my - STAGE_Y) - sprite->h * sprite->scale / 2.0f;
+                clamp_sprite(sprite);
+            }
+            else if (txt.find("glide") != std::string::npos &&
+                     txt.find("secs") != std::string::npos) {
+                float secs = get_input_val(b, 0, 1);
+                float gx   = get_input_val(b, 1, 0);
+                float gy   = get_input_val(b, 2, 0);
+                sprite->x = STAGE_WIDTH  / 2.0f + gx - sprite->w * sprite->scale / 2.0f;
+                sprite->y = STAGE_HEIGHT / 2.0f - gy - sprite->h * sprite->scale / 2.0f;
+                clamp_sprite(sprite);
+                waitUntil = SDL_GetTicks() + (Uint32)(secs * 1000);
+                waiting = true;
+            }
+            else if (txt.find("point in direction") != std::string::npos) {
+                sprite->direction = get_input_val(b, 0, 90);
+            }
+            else if (txt.find("point towards mouse") != std::string::npos) {
+                int mx, my;
+                SDL_GetMouseState(&mx, &my);
+                float sx = STAGE_X + sprite->x + sprite->w * sprite->scale / 2.0f;
+                float sy = STAGE_Y + sprite->y + sprite->h * sprite->scale / 2.0f;
+                float dx = (float)(mx - sx), dy = (float)(my - sy);
+                sprite->direction = (float)(std::atan2(dy, dx) * 180.0 / M_PI) + 90.0f;
+            }
             else if (txt.find("change x by") != std::string::npos) {
-                sprite->x += b->inputs.empty()
-                             ? (float)parse_num(txt, "by ", 10)
-                             : get_input_val(b, 0, 10);
+                sprite->x += get_input_val(b, 0, 10);
                 clamp_sprite(sprite);
             }
             else if (txt.find("change y by") != std::string::npos) {
-                sprite->y -= b->inputs.empty()
-                             ? (float)parse_num(txt, "by ", 10)
-                             : get_input_val(b, 0, 10);
+                sprite->y -= get_input_val(b, 0, 10);
                 clamp_sprite(sprite);
             }
             else if (txt.find("set x to") != std::string::npos) {
-                float val = b->inputs.empty()
-                            ? (float)parse_num(txt, "to ", 0)
-                            : get_input_val(b, 0, 0);
-                sprite->x = STAGE_WIDTH / 2.0f + val - sprite->w / 2.0f;
+                float val = get_input_val(b, 0, 0);
+                sprite->x = STAGE_WIDTH / 2.0f + val - sprite->w * sprite->scale / 2.0f;
                 clamp_sprite(sprite);
             }
             else if (txt.find("set y to") != std::string::npos) {
-                float val = b->inputs.empty()
-                            ? (float)parse_num(txt, "to ", 0)
-                            : get_input_val(b, 0, 0);
-                sprite->y = STAGE_HEIGHT / 2.0f - val - sprite->h / 2.0f;
+                float val = get_input_val(b, 0, 0);
+                sprite->y = STAGE_HEIGHT / 2.0f - val - sprite->h * sprite->scale / 2.0f;
                 clamp_sprite(sprite);
             }
-            else if (txt.find("point in direction") != std::string::npos) {
-                sprite->direction = b->inputs.empty()
-                                    ? (float)parse_num(txt, "direction ", 90)
-                                    : get_input_val(b, 0, 90);
-            }
             else if (txt.find("if on edge") != std::string::npos) {
-                if (sprite->x <= 0 || sprite->x >= STAGE_WIDTH  - sprite->w)
+                float maxX = (float)(STAGE_WIDTH  - (int)(sprite->w * sprite->scale));
+                float maxY = (float)(STAGE_HEIGHT - (int)(sprite->h * sprite->scale));
+                if (sprite->x <= 0 || sprite->x >= maxX)
                     sprite->direction = 180.0f - sprite->direction;
-                if (sprite->y <= 0 || sprite->y >= STAGE_HEIGHT - sprite->h)
+                if (sprite->y <= 0 || sprite->y >= maxY)
                     sprite->direction = -sprite->direction;
+                clamp_sprite(sprite);
             }
         }
 
-        // ── LOOKS ─────────────────────────────────────────────────────────────
+        // ── LOOKS ───────────────────────────────────────────────────────────
         else if (b->type == BLOCK_LOOKS) {
             if (txt.find("say") != std::string::npos ||
                 txt.find("think") != std::string::npos) {
-                std::string keyword = (txt.find("say ") != std::string::npos)
-                                      ? "say " : "think ";
-                size_t sp = txt.find(keyword);
-                std::string msg = (sp != std::string::npos)
-                                  ? txt.substr(sp + keyword.size()) : "Hello!";
-                size_t fp = msg.find(" for ");
-                if (fp != std::string::npos) {
-                    int secs = 2;
-                    try { secs = std::stoi(msg.substr(fp + 5)); } catch (...) {}
-                    sprite->sayText  = msg.substr(0, fp);
-                    sprite->sayTimer = secs * 60;
+                if (txt.find("for") != std::string::npos && b->inputs.size() >= 2) {
+                    sprite->sayText  = get_input_str(b, 0, "Hello!");
+                    float secs = get_input_val(b, 1, 2);
+                    sprite->sayTimer = (int)(secs * 60);
                     waitUntil = SDL_GetTicks() + (Uint32)(secs * 1000);
                     waiting = true; saySilent = true;
+                } else if (!b->inputs.empty()) {
+                    sprite->sayText  = get_input_str(b, 0, "Hello!");
+                    sprite->sayTimer = 999999;
                 } else {
-                    sprite->sayText = msg; sprite->sayTimer = 999999;
+                    sprite->sayText  = "Hello!";
+                    sprite->sayTimer = 999999;
                 }
             }
-            else if (txt == "show") { sprite->visible = true; }
-            else if (txt == "hide") { sprite->visible = false; }
+            else if (txt == "show")        { sprite->visible = true; }
+            else if (txt == "hide")        { sprite->visible = false; }
             else if (txt.find("set size to") != std::string::npos) {
-                float val = b->inputs.empty()
-                            ? parse_float(txt, "to ", 100)
-                            : get_input_val(b, 0, 100);
+                float val = get_input_val(b, 0, 100);
                 sprite->scale = val / 100.0f;
                 if (sprite->scale < 0.05f) sprite->scale = 0.05f;
             }
             else if (txt.find("change size by") != std::string::npos) {
-                float val = b->inputs.empty()
-                            ? parse_float(txt, "by ", 10)
-                            : get_input_val(b, 0, 10);
+                float val = get_input_val(b, 0, 10);
                 sprite->scale += val / 100.0f;
                 if (sprite->scale < 0.05f) sprite->scale = 0.05f;
             }
@@ -254,7 +302,8 @@ struct ScriptRunner {
                 }
             }
             else if (txt.find("switch costume to") != std::string::npos) {
-                int idx = parse_num(txt, "to ", 0);
+                int idx = (int)get_input_val(b, 0, 0);
+                if (idx >= 1) idx--; // 1-based به 0-based
                 if (idx >= 0 && idx < (int)sprite->costumes.size()) {
                     sprite->currentCostume = idx;
                     if (sprite->costumes[idx].texture)
@@ -263,192 +312,361 @@ struct ScriptRunner {
             }
         }
 
-        // ── CONTROL ───────────────────────────────────────────────────────────
+        // ── SOUND ───────────────────────────────────────────────────────────
+        else if (b->type == BLOCK_SOUND) {
+            if (g_soundsPanel) {
+                if (txt.find("play sound") != std::string::npos) {
+                    std::string sname = get_input_str(b, 0, "");
+                    bool untilDone = (txt.find("until done") != std::string::npos);
+                    for (auto& sc : g_soundsPanel->sounds) {
+                        bool match = sname.empty()
+                            || sc.name.find(sname) != std::string::npos
+                            || sname.find(sc.name) != std::string::npos;
+                        if (match) {
+                            // ساده: پخش از طریق SDL_mixer اگر chunk دارد
+                            if (sc.chunk) {
+                                int ch = Mix_PlayChannel(-1, sc.chunk, 0);
+                                sc.channel   = ch;
+                                sc.isPlaying = true;
+                                if (untilDone && sc.durationSecs > 0) {
+                                    waitUntil = SDL_GetTicks() + (Uint32)(sc.durationSecs * 1000);
+                                    waiting   = true;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                else if (txt.find("stop all sounds") != std::string::npos) {
+                    Mix_HaltChannel(-1);
+                    for (auto& sc : g_soundsPanel->sounds)
+                        sc.isPlaying = false;
+                }
+                else if (txt.find("change volume by") != std::string::npos) {
+                    float delta = get_input_val(b, 0, 10);
+                    for (auto& sc : g_soundsPanel->sounds) {
+                        sc.volume = std::max(0.0f, std::min(100.0f, sc.volume + delta));
+                        if (sc.channel >= 0 && sc.isPlaying)
+                            Mix_Volume(sc.channel, (int)(sc.volume / 100.0f * MIX_MAX_VOLUME));
+                    }
+                }
+                else if (txt.find("set volume to") != std::string::npos) {
+                    float val = get_input_val(b, 0, 100);
+                    for (auto& sc : g_soundsPanel->sounds) {
+                        sc.volume = std::max(0.0f, std::min(100.0f, val));
+                        if (sc.channel >= 0 && sc.isPlaying)
+                            Mix_Volume(sc.channel, (int)(sc.volume / 100.0f * MIX_MAX_VOLUME));
+                    }
+                }
+                else if (txt.find("clear sound effects") != std::string::npos) {
+                    Mix_HaltChannel(-1);
+                }
+            }
+        }
+
+        // ── SENSING ─────────────────────────────────────────────────────────
+        else if (b->type == BLOCK_SENSING) {
+            if (txt.find("ask") != std::string::npos &&
+                txt.find("and wait") != std::string::npos) {
+                std::string question = get_input_str(b, 0, "What's your name?");
+                sprite->sayText  = question;
+                sprite->sayTimer = 999999;
+                g_askPending  = true;
+                g_askQuestion = question;
+                g_answer      = "";
+            }
+            else if (txt.find("reset timer") != std::string::npos) {
+                g_timerStart = SDL_GetTicks();
+            }
+        }
+
+        // ── CONTROL ─────────────────────────────────────────────────────────
         else if (b->type == BLOCK_CONTROL) {
             if (txt.find("wait") != std::string::npos &&
-                txt.find("secs") != std::string::npos) {
-                float secs = b->inputs.empty()
-                             ? (float)parse_num(txt, "wait ", 1)
-                             : get_input_val(b, 0, 1);
+                txt.find("secs") != std::string::npos &&
+                txt.find("until") == std::string::npos) {
+                float secs = get_input_val(b, 0, 1);
                 waitUntil = SDL_GetTicks() + (Uint32)(secs * 1000);
                 waiting = true; saySilent = false;
             }
+            else if (txt.find("wait until") != std::string::npos) {
+                // هر فریم چک می‌کند
+                if (!eval_condition(b)) {
+                    // هنوز شرط برقرار نشده، همینجا بمان
+                    // (همین بلاک رو دوباره اجرا می‌کند)
+                    return true; // فعلاً جهش نمی‌زنیم ولی advance هم نمی‌کنیم
+                }
+            }
             else if (txt.find("repeat") != std::string::npos &&
                      txt.find("forever") == std::string::npos) {
-                int count = b->inputs.empty()
-                            ? parse_num(txt, "repeat ", 10)
-                            : (int)get_input_val(b, 0, 10);
-                if (b->next) {
-                    loopStack.push_back({b->next, count});
-                    current = b->next;
+                int count = (int)get_input_val(b, 0, 10);
+                if (b->isCShaped && b->innerFirst) {
+                    loopStack.push_back({b, b->innerFirst, count, false});
+                    current = b->innerFirst;
                     return true;
                 }
+                // اگر بلاک‌های داخلی ندارد، برو بعدی
             }
             else if (txt.find("forever") != std::string::npos) {
-                if (b->next) {
-                    loopStack.push_back({b->next, -1});
-                    current = b->next;
+                if (b->isCShaped && b->innerFirst) {
+                    loopStack.push_back({b, b->innerFirst, -1, false});
+                    current = b->innerFirst;
                     return true;
                 }
             }
-            else if (txt.find("stop") != std::string::npos) {
+            else if (txt.find("if") != std::string::npos &&
+                     txt.find("then") != std::string::npos) {
+                bool cond = eval_condition(b);
+                if (b->hasElse) {
+                    if (cond && b->innerFirst) {
+                        loopStack.push_back({b, b->innerFirst, 1, false});
+                        current = b->innerFirst;
+                        return true;
+                    } else if (!cond && b->elseFirst) {
+                        loopStack.push_back({b, b->elseFirst, 1, true});
+                        current = b->elseFirst;
+                        return true;
+                    }
+                } else {
+                    if (cond && b->innerFirst) {
+                        loopStack.push_back({b, b->innerFirst, 1, false});
+                        current = b->innerFirst;
+                        return true;
+                    }
+                }
+                // شرط برقرار نشد یا inner خالی است → ادامه بده
+            }
+            else if (txt.find("stop all") != std::string::npos &&
+                     txt.find("script") == std::string::npos) {
+                stop(); return true;
+            }
+            else if (txt.find("stop this script") != std::string::npos ||
+                     txt.find("stop other") != std::string::npos) {
                 stop(); return true;
             }
         }
 
-        // ── VARIABLES ─────────────────────────────────────────────────────────
+        // ── VARIABLES ───────────────────────────────────────────────────────
         else if (b->type == BLOCK_VARIABLES) {
             if (txt.find("set ") == 0 && txt.find(" to ") != std::string::npos) {
                 size_t toPos = txt.find(" to ");
                 std::string varName = txt.substr(4, toPos - 4);
-                float val = b->inputs.empty()
-                            ? parse_float(txt, " to ", 0.0f)
-                            : get_input_val(b, 0, 0.0f);
+                float val = get_input_val(b, 0, 0.0f);
                 g_vars[varName] = val;
             }
             else if (txt.find("change ") == 0 &&
                      txt.find(" by ") != std::string::npos) {
                 size_t byPos = txt.find(" by ");
                 std::string varName = txt.substr(7, byPos - 7);
-                float delta = b->inputs.empty()
-                              ? parse_float(txt, " by ", 1.0f)
-                              : get_input_val(b, 0, 1.0f);
+                float delta = get_input_val(b, 0, 1.0f);
                 g_vars[varName] += delta;
+            }
+            else if (txt.find("show variable") != std::string::npos) {
+                if (vars) {
+                    size_t p = txt.find("variable ") + 9;
+                    std::string vname = txt.substr(p);
+                    for (auto& v : *vars)
+                        if (v.name == vname) v.showOnStage = true;
+                }
+            }
+            else if (txt.find("hide variable") != std::string::npos) {
+                if (vars) {
+                    size_t p = txt.find("variable ") + 9;
+                    std::string vname = txt.substr(p);
+                    for (auto& v : *vars)
+                        if (v.name == vname) v.showOnStage = false;
+                }
             }
         }
 
-        // ── OPERATORS – پیاده‌سازی کامل ─────────────────────────────────────
+        // ── OPERATORS ───────────────────────────────────────────────────────
         else if (b->type == BLOCK_OPERATORS) {
             float a = get_input_val(b, 0, 0.0f);
-            float c = get_input_val(b, 1, 0.0f);  // دومین ورودی
+            float c = get_input_val(b, 1, 0.0f);
             float result = 0.0f;
             bool  computed = true;
 
-            if (txt.find("() + ()") != std::string::npos ||
-                txt.find(" + ") != std::string::npos) {
+            if      (txt.find("() + ()") != std::string::npos) {
                 result = a + c;
-                g_operatorResultText = float_to_str(a) + " + " +
-                                       float_to_str(c) + " = " +
-                                       float_to_str(result);
+                g_operatorResultText = float_to_str(a)+" + "+float_to_str(c)+" = "+float_to_str(result);
             }
-            else if (txt.find("() - ()") != std::string::npos ||
-                     txt.find(" - ") != std::string::npos) {
+            else if (txt.find("() - ()") != std::string::npos) {
                 result = a - c;
-                g_operatorResultText = float_to_str(a) + " - " +
-                                       float_to_str(c) + " = " +
-                                       float_to_str(result);
+                g_operatorResultText = float_to_str(a)+" - "+float_to_str(c)+" = "+float_to_str(result);
             }
-            else if (txt.find("() * ()") != std::string::npos ||
-                     txt.find(" * ") != std::string::npos) {
+            else if (txt.find("() * ()") != std::string::npos) {
                 result = a * c;
-                g_operatorResultText = float_to_str(a) + " × " +
-                                       float_to_str(c) + " = " +
-                                       float_to_str(result);
+                g_operatorResultText = float_to_str(a)+" × "+float_to_str(c)+" = "+float_to_str(result);
             }
-            else if (txt.find("() / ()") != std::string::npos ||
-                     txt.find(" / ") != std::string::npos) {
-                result = (c != 0.0f) ? a / c : 0.0f;
-                g_operatorResultText = float_to_str(a) + " ÷ " +
-                                       float_to_str(c) + " = " +
-                                       (c != 0.0f ? float_to_str(result) : "ERR");
+            else if (txt.find("() / ()") != std::string::npos) {
+                result = (c != 0) ? a / c : 0;
+                g_operatorResultText = float_to_str(a)+" ÷ "+float_to_str(c)+" = "+(c!=0?float_to_str(result):"ERR");
             }
             else if (txt.find("() mod ()") != std::string::npos) {
-                result = (c != 0.0f) ? std::fmod(a, c) : 0.0f;
-                g_operatorResultText = float_to_str(a) + " mod " +
-                                       float_to_str(c) + " = " +
-                                       float_to_str(result);
+                result = (c != 0) ? std::fmod(a, c) : 0;
+                g_operatorResultText = float_to_str(a)+" mod "+float_to_str(c)+" = "+float_to_str(result);
             }
             else if (txt.find("() < ()") != std::string::npos) {
-                result = (a < c) ? 1.0f : 0.0f;
-                g_operatorResultText = float_to_str(a) + " < " +
-                                       float_to_str(c) + " → " +
-                                       (result ? "true" : "false");
+                result = (a < c) ? 1 : 0;
+                g_operatorResultText = float_to_str(a)+" < "+float_to_str(c)+" → "+(result?"true":"false");
             }
             else if (txt.find("() > ()") != std::string::npos) {
-                result = (a > c) ? 1.0f : 0.0f;
-                g_operatorResultText = float_to_str(a) + " > " +
-                                       float_to_str(c) + " → " +
-                                       (result ? "true" : "false");
+                result = (a > c) ? 1 : 0;
+                g_operatorResultText = float_to_str(a)+" > "+float_to_str(c)+" → "+(result?"true":"false");
             }
             else if (txt.find("() = ()") != std::string::npos) {
-                result = (a == c) ? 1.0f : 0.0f;
-                g_operatorResultText = float_to_str(a) + " = " +
-                                       float_to_str(c) + " → " +
-                                       (result ? "true" : "false");
+                result = (a == c) ? 1 : 0;
+                g_operatorResultText = float_to_str(a)+" = "+float_to_str(c)+" → "+(result?"true":"false");
+            }
+            else if (txt.find("and") != std::string::npos) {
+                result = (a != 0 && c != 0) ? 1 : 0;
+                g_operatorResultText = std::string(a?"true":"false") + " AND " + std::string(c?"true":"false") + " → " + std::string(result?"true":"false");            }
+            else if (txt.find("or") != std::string::npos) {
+                result = (a != 0 || c != 0) ? 1 : 0;
+                g_operatorResultText = std::string(a?"true":"false") + " OR " + std::string(c?"true":"false") + " → " + std::string(result?"true":"false");
+            }
+            else if (txt.find("not <>") != std::string::npos) {
+                result = (a == 0) ? 1 : 0;
+                g_operatorResultText = std::string("NOT ") + std::string(a?"true":"false") + " → " + std::string(result?"true":"false");
             }
             else if (txt.find("round ()") != std::string::npos) {
                 result = std::round(a);
-                g_operatorResultText = "round(" + float_to_str(a) + ") = " +
-                                       float_to_str(result);
+                g_operatorResultText = "round("+float_to_str(a)+") = "+float_to_str(result);
             }
             else if (txt.find("abs of ()") != std::string::npos) {
                 result = std::abs(a);
-                g_operatorResultText = "abs(" + float_to_str(a) + ") = " +
-                                       float_to_str(result);
+                g_operatorResultText = "abs("+float_to_str(a)+") = "+float_to_str(result);
             }
             else if (txt.find("sqrt of ()") != std::string::npos) {
-                result = (a >= 0) ? std::sqrt(a) : 0.0f;
-                g_operatorResultText = "√(" + float_to_str(a) + ") = " +
-                                       float_to_str(result);
+                result = (a >= 0) ? std::sqrt(a) : 0;
+                g_operatorResultText = "√("+float_to_str(a)+") = "+float_to_str(result);
             }
             else if (txt.find("floor of ()") != std::string::npos) {
                 result = std::floor(a);
-                g_operatorResultText = "floor(" + float_to_str(a) + ") = " +
-                                       float_to_str(result);
+                g_operatorResultText = "floor("+float_to_str(a)+") = "+float_to_str(result);
             }
             else if (txt.find("ceiling of ()") != std::string::npos) {
                 result = std::ceil(a);
-                g_operatorResultText = "ceiling(" + float_to_str(a) + ") = " +
-                                       float_to_str(result);
+                g_operatorResultText = "ceiling("+float_to_str(a)+") = "+float_to_str(result);
             }
             else if (txt.find("sin of ()") != std::string::npos) {
-                result = std::sin(a * M_PI / 180.0);
-                g_operatorResultText = "sin(" + float_to_str(a) + "°) = " +
-                                       float_to_str(result);
+                result = (float)std::sin(a * M_PI / 180.0);
+                g_operatorResultText = "sin("+float_to_str(a)+"°) = "+float_to_str(result);
             }
             else if (txt.find("cos of ()") != std::string::npos) {
-                result = std::cos(a * M_PI / 180.0);
-                g_operatorResultText = "cos(" + float_to_str(a) + "°) = " +
-                                       float_to_str(result);
+                result = (float)std::cos(a * M_PI / 180.0);
+                g_operatorResultText = "cos("+float_to_str(a)+"°) = "+float_to_str(result);
+            }
+            else if (txt.find("tan of ()") != std::string::npos) {
+                result = (float)std::tan(a * M_PI / 180.0);
+                g_operatorResultText = "tan("+float_to_str(a)+"°) = "+float_to_str(result);
             }
             else if (txt.find("pick random") != std::string::npos) {
                 int lo = (int)get_input_val(b, 0, 1);
                 int hi = (int)get_input_val(b, 1, 10);
                 if (hi < lo) std::swap(lo, hi);
                 result = (float)(lo + rand() % (hi - lo + 1));
-                g_operatorResultText = "random(" + std::to_string(lo) +
-                                       "," + std::to_string(hi) + ") = " +
-                                       float_to_str(result);
+                g_operatorResultText = "random("+std::to_string(lo)+","+std::to_string(hi)+") = "+float_to_str(result);
             }
-            else {
-                computed = false;
+            else if (txt.find("join () ()") != std::string::npos) {
+                std::string s1 = get_input_str(b, 0, "hello");
+                std::string s2 = get_input_str(b, 1, "world");
+                std::string res = s1 + s2;
+                g_operatorResultText = "join: \"" + res + "\"";
+                sprite->sayText  = res;
+                sprite->sayTimer = 180;
+                g_hasOperatorResult = true;
+                return false;
             }
+            else if (txt.find("length of ()") != std::string::npos) {
+                std::string s = get_input_str(b, 0, "");
+                result = (float)s.size();
+                g_operatorResultText = "length(\""+s+"\") = "+float_to_str(result);
+            }
+            else if (txt.find("letter () of ()") != std::string::npos) {
+                int idx2 = (int)get_input_val(b, 0, 1) - 1;
+                std::string s = get_input_str(b, 1, "");
+                std::string res = (idx2 >= 0 && idx2 < (int)s.size())
+                                  ? std::string(1, s[idx2]) : "";
+                g_operatorResultText = "letter "+std::to_string(idx2+1)+" of \""+s+"\" = \""+res+"\"";
+                sprite->sayText = res; sprite->sayTimer = 180;
+                g_hasOperatorResult = true;
+                return false;
+            }
+            else { computed = false; }
 
             if (computed) {
                 g_lastOperatorResult = result;
                 g_hasOperatorResult  = true;
-                // نمایش نتیجه روی sprite به عنوان say
                 sprite->sayText  = g_operatorResultText;
-                sprite->sayTimer = 180; // 3 ثانیه (60fps)
+                sprite->sayTimer = 180;
             }
         }
 
         return false;
     }
 
-    void advance(Block* b) {
-        if (b->next) { current = b->next; return; }
-        if (!loopStack.empty()) {
-            LoopFrame& f = loopStack.back();
-            if (f.remaining == -1) { current = f.loopBody; return; }
-            f.remaining--;
-            if (f.remaining > 0) { current = f.loopBody; return; }
-            loopStack.pop_back();
+    // ─── پیشروی در زنجیر اصلی یا بازگشت از loop ────────────────────────────
+    void advance(Block* b, Sprite* /*sprite*/) {
+        // اگر بلاک جاری، next داخلی دارد
+        if (b->next) {
+            current = b->next;
+            return;
         }
-        current = nullptr; running = false;
+        // اگر در یک loop frame هستیم
+        if (!loopStack.empty()) {
+            advance_loop(nullptr);
+            return;
+        }
+        current = nullptr;
+        running = false;
+    }
+
+    void advance_loop(Sprite* /*sprite*/) {
+        if (loopStack.empty()) { current = nullptr; running = false; return; }
+
+        LoopFrame& f = loopStack.back();
+
+        // پیدا کردن بلاک بعدی داخل C
+        Block* nextInner = f.current ? f.current->next : nullptr;
+
+        if (nextInner) {
+            f.current = nextInner;
+            current   = nextInner;
+            return;
+        }
+
+        // رسیدیم به آخر آنچه داخل C بود
+        // تکرار یا خروج؟
+        if (f.remaining == -1) {
+            // forever → برگرد به اول
+            Block* first = f.inElse ? f.loopBlock->elseFirst
+                                     : f.loopBlock->innerFirst;
+            f.current = first;
+            current   = first;
+            return;
+        }
+        if (f.remaining > 1) {
+            f.remaining--;
+            Block* first = f.loopBlock->innerFirst;
+            f.current = first;
+            current   = first;
+            return;
+        }
+        // تمام شد
+        Block* afterC = f.loopBlock->next;
+        loopStack.pop_back();
+        if (afterC) {
+            current = afterC;
+        } else if (!loopStack.empty()) {
+            advance_loop(nullptr);
+        } else {
+            current = nullptr; running = false;
+        }
     }
 };
 
+// ─── پیدا کردن شروع اسکریپت ─────────────────────────────────────────────────
 Block* find_script_start(std::vector<Block*>& blocks) {
     for (Block* b : blocks)
         if (b->type == BLOCK_EVENT && b->prev == nullptr && b->next != nullptr)
@@ -458,35 +676,34 @@ Block* find_script_start(std::vector<Block*>& blocks) {
     return nullptr;
 }
 
-// ─── نمایش نتیجه Operator روی Stage ─────────────────────────────────────────
+// ─── رندر نتیجه Operator روی Stage ──────────────────────────────────────────
 inline void draw_operator_result(SDL_Renderer* r, TTF_Font* font, Stage* stage) {
     if (!g_hasOperatorResult || !font || !stage) return;
-
     const std::string& txt = g_operatorResultText;
     int tw, th;
     TTF_SizeUTF8(font, txt.c_str(), &tw, &th);
-
-    int bx = stage->x + stage->w / 2 - tw / 2 - 12;
+    int bx = stage->x + stage->w/2 - tw/2 - 12;
     int by = stage->y + 8;
-    int bw = tw + 24;
-    int bh = th + 12;
+    int bw = tw + 24, bh = th + 12;
 
-    // سایه
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(r, 0, 0, 0, 60);
-    SDL_Rect shadow = {bx + 2, by + 2, bw, bh};
+    SDL_SetRenderDrawColor(r, 0,0,0,60);
+    SDL_Rect shadow = {bx+2, by+2, bw, bh};
     SDL_RenderFillRect(r, &shadow);
-
-    // پس‌زمینه سبز Operator
-    SDL_SetRenderDrawColor(r, 89, 192, 89, 230);
+    SDL_SetRenderDrawColor(r, 89,192,89,230);
     SDL_Rect bg = {bx, by, bw, bh};
     SDL_RenderFillRect(r, &bg);
-
-    SDL_SetRenderDrawColor(r, 50, 150, 50, 255);
+    SDL_SetRenderDrawColor(r, 50,150,50,255);
     SDL_RenderDrawRect(r, &bg);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 
-    draw_text(r, font, txt, bx + 12, by + 6, COLOR_TEXT_WHITE);
+    // draw_text forward declaration — تعریفش در render.h است
+    extern void draw_text(SDL_Renderer*, TTF_Font*, const std::string&, int, int, SDL_Color);
+    draw_text(r, font, txt, bx+12, by+6, {255,255,255,255});
 }
+
+// ─── رندر input بار ask ──────────────────────────────────────────────────────
+// وقتی g_askPending=true، در render loop یک textbox روی stage نشان داده می‌شود
+// و کاربر تایپ می‌کند؛ با Enter تأیید می‌شود و g_answer پر می‌شود.
 
 #endif
