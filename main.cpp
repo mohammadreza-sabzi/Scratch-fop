@@ -11,8 +11,26 @@
 #include "render.h"
 #include "engine.h"
 #include "costume_editor.h"
+#include "SaveSystem.h"
+#include "OperatorLogic.h"
 
 using namespace std;
+
+vector<BlockData> convertToSaveData(const vector<Block*>& blocks) {
+    vector<BlockData> data;
+    for (auto b : blocks) {
+        data.push_back({ (int)b->type, b->text, "" });
+    }
+    return data;
+}
+
+void loadToWorkspace(const vector<BlockData>& data, vector<Block*>& workspaceBlocks) {
+    for (auto& d : data) {
+        Block* nb = new Block{ (int)workspaceBlocks.size() + 1, (BlockType)d.type, d.opcode, 250, 250, BLOCK_W, BLOCK_H, false, 0, 0, nullptr, nullptr };
+        init_block_inputs(nb);
+        workspaceBlocks.push_back(nb);
+    }
+}
 
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
@@ -279,6 +297,15 @@ int main(int argc, char* argv[]) {
                 }
                 continue;
             }
+            if (e.key.keysym.sym == SDLK_s && (SDL_GetModState() & KMOD_CTRL)) {
+    SaveSystem::saveToFile("project.txt", convertToSaveData(workspaceBlocks));
+    cout << "Saved to project.txt" << endl;
+}
+if (e.key.keysym.sym == SDLK_l && (SDL_GetModState() & KMOD_CTRL)) {
+    auto data = SaveSystem::loadFromFile("project.txt");
+    loadToWorkspace(data, workspaceBlocks);
+    cout << "Loaded from project.txt" << endl;
+}
             if (activeInput && e.type == SDL_TEXTINPUT) {
                 std::string ch = e.text.text;
                 for (char c : ch) {
