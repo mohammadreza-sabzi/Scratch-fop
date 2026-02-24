@@ -2,6 +2,10 @@
 // Created by Domim on 2/21/2026.
 //
 
+//
+// Created by Domim on 2/21/2026.
+//
+
 #ifndef COSTUME_EDITOR_H
 #define COSTUME_EDITOR_H
 
@@ -103,6 +107,31 @@ inline void ce_open(CostumeEditor& ce, SDL_Renderer* r, Sprite* sprite, int cost
     SDL_FillRect(ce.canvasSurf, nullptr,
         SDL_MapRGBA(ce.canvasSurf->format, 255, 255, 255, 255));
 
+    // اگر کاستوم انتخاب‌شده تکستچر دارد، آن را روی کانواس رسم می‌کنیم
+    if (sprite && costumeIdx >= 0 && costumeIdx < (int)sprite->costumes.size()
+        && sprite->costumes[costumeIdx].texture) {
+        SDL_Texture* srcTex = sprite->costumes[costumeIdx].texture;
+
+        // یک render target موقت به اندازه کانواس می‌سازیم
+        SDL_Texture* tmpTarget = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888,
+            SDL_TEXTUREACCESS_TARGET, CE_CANVAS_W, CE_CANVAS_H);
+        if (tmpTarget) {
+            SDL_SetRenderTarget(r, tmpTarget);
+            SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+            SDL_RenderClear(r);
+            SDL_Rect dstRect = {0, 0, CE_CANVAS_W, CE_CANVAS_H};
+            SDL_RenderCopy(r, srcTex, nullptr, &dstRect);
+
+            // پیکسل‌های render target را روی canvasSurf کپی می‌کنیم (قبل از reset target)
+            SDL_LockSurface(ce.canvasSurf);
+            SDL_RenderReadPixels(r, &dstRect, ce.canvasSurf->format->format,
+                ce.canvasSurf->pixels, ce.canvasSurf->pitch);
+            SDL_UnlockSurface(ce.canvasSurf);
+
+            SDL_SetRenderTarget(r, nullptr);
+            SDL_DestroyTexture(tmpTarget);
+        }
+    }
 
     ce.canvasTex = SDL_CreateTextureFromSurface(r, ce.canvasSurf);
     SDL_SetTextureBlendMode(ce.canvasTex, SDL_BLENDMODE_NONE);
@@ -609,3 +638,4 @@ static void ce_draw_shape_preview(SDL_Renderer* r, CostumeEditor& ce, SDL_Rect c
 }
 
 #endif // COSTUME_EDITOR_H
+

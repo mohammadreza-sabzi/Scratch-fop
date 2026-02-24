@@ -3,6 +3,11 @@
 //
 
 
+//
+// Created by Domim on 2/18/2026.
+//
+
+
 #ifndef SCRATCH_FOP_UTILS_H
 #define SCRATCH_FOP_UTILS_H
 
@@ -324,22 +329,6 @@ void handle_category_click(int mx, int my, Palette& palette) {
 void handle_scroll_value(SDL_Event& e, int& scrollOffset) {
     scrollOffset += e.wheel.y * 20;
     if (scrollOffset > 0) scrollOffset = 0;
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-BlockInput* check_input_click(int mx, int my,
-                               std::vector<Block*>& blocks) {
-    for (Block* b : blocks) {
-        if (b->isDragging) continue;
-        for (auto& inp : b->inputs) {
-            if (inp.rect.w > 0 &&
-                point_in_rect(mx, my,
-                              inp.rect.x, inp.rect.y,
-                              inp.rect.w, inp.rect.h))
-                return &inp;
-        }
-    }
-    return nullptr;
 }
 
 #endif

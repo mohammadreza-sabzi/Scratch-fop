@@ -690,7 +690,10 @@ inline void draw_operator_result(SDL_Renderer* r, TTF_Font* font, Stage* stage) 
     SDL_SetRenderDrawColor(r, 0,0,0,60);
     SDL_Rect shadow = {bx+2, by+2, bw, bh};
     SDL_RenderFillRect(r, &shadow);
-    SDL_SetRenderDrawColor(r, 89,192,89,230);
+    bool isBool = (g_operatorResultText.find("true") != std::string::npos ||
+                       g_operatorResultText.find("false") != std::string::npos);
+    SDL_Color resBg = isBool ? SDL_Color{60,130,220,230} : SDL_Color{89,192,89,230};
+    SDL_SetRenderDrawColor(r, resBg.r, resBg.g, resBg.b, resBg.a);
     SDL_Rect bg = {bx, by, bw, bh};
     SDL_RenderFillRect(r, &bg);
     SDL_SetRenderDrawColor(r, 50,150,50,255);

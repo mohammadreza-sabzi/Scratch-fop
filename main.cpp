@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -290,6 +291,10 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
     g_soundsPanel = &soundsPanel;
 
+    // متغیرهای ویرایش sprite info panel
+    int   spriteInfoActiveField = -1;   // 0=x,1=y,2=dir,3=size  (-1=none)
+    std::string spriteInfoEditText = "";
+
     SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 38, 32};
     SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H - 4, 32, 32};
 
@@ -445,12 +450,7 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 continue;
             }
             if (activeInput && e.type == SDL_TEXTINPUT) {
-                std::string ch = e.text.text;
-                for (char c : ch) {
-                    if (std::isdigit(c) || c == '.' ||
-                        (c == '-' && activeInput->value.empty()))
-                        activeInput->value += c;
-                }
+                activeInput->value += e.text.text;
                 continue;
             }
 
@@ -508,6 +508,70 @@ addPB(BLOCK_VARIABLES, "hide variable score");
             }
             if (myBlocksCreating && e.type == SDL_TEXTINPUT) {
                 newBlockName += e.text.text;
+                continue;
+            }
+
+            // ── ورودی کیبورد برای فیلدهای Sprite Info ─────────────────────
+            if (spriteInfoActiveField >= 0 && e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN ||
+                    e.key.keysym.sym == SDLK_KP_ENTER) {
+                    if (!spriteInfoEditText.empty()) {
+                        try {
+                            float val = std::stof(spriteInfoEditText);
+                            if (spriteInfoActiveField == 0)
+                                sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                            else if (spriteInfoActiveField == 1)
+                                sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                            else if (spriteInfoActiveField == 2)
+                                sprite.direction = val;
+                            else if (spriteInfoActiveField == 3) {
+                                sprite.scale = val / 100.0f;
+                                if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                            }
+                        } catch (...) {}
+                    }
+                    spriteInfoActiveField = -1;
+                    spriteInfoEditText = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    spriteInfoActiveField = -1;
+                    spriteInfoEditText = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE &&
+                           !spriteInfoEditText.empty()) {
+                    spriteInfoEditText.pop_back();
+                } else if (e.key.keysym.sym == SDLK_TAB) {
+                    // Tab برای رفتن به فیلد بعدی
+                    if (!spriteInfoEditText.empty()) {
+                        try {
+                            float val = std::stof(spriteInfoEditText);
+                            if (spriteInfoActiveField == 0)
+                                sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                            else if (spriteInfoActiveField == 1)
+                                sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                            else if (spriteInfoActiveField == 2)
+                                sprite.direction = val;
+                            else if (spriteInfoActiveField == 3) {
+                                sprite.scale = val / 100.0f;
+                                if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                            }
+                        } catch (...) {}
+                    }
+                    spriteInfoActiveField = (spriteInfoActiveField + 1) % 4;
+                    float scrX2 = sprite.x - STAGE_WIDTH/2.0f + sprite.w/2.0f;
+                    float scrY2 = -(sprite.y - STAGE_HEIGHT/2.0f + sprite.h/2.0f);
+                    std::ostringstream ss3;
+                    ss3 << std::fixed << std::setprecision(1);
+                    if (spriteInfoActiveField == 0) ss3 << scrX2;
+                    else if (spriteInfoActiveField == 1) ss3 << scrY2;
+                    else if (spriteInfoActiveField == 2) ss3 << sprite.direction;
+                    else if (spriteInfoActiveField == 3) ss3 << sprite.scale*100.0f;
+                    spriteInfoEditText = ss3.str();
+                }
+                continue;
+            }
+            if (spriteInfoActiveField >= 0 && e.type == SDL_TEXTINPUT) {
+                spriteInfoEditText += e.text.text;
                 continue;
             }
 
@@ -634,6 +698,59 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     continue;
                 }
 
+                // ── Sprite Info Panel (فیلدهای قابل ویرایش) ────────────────
+                {
+                    int siField = sprite_info_field_at(mx, my);
+                    if (siField >= 0) {
+                        if (spriteInfoActiveField >= 0 && !spriteInfoEditText.empty()) {
+                            try {
+                                float val = std::stof(spriteInfoEditText);
+                                if (spriteInfoActiveField == 0)
+                                    sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                                else if (spriteInfoActiveField == 1)
+                                    sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                                else if (spriteInfoActiveField == 2)
+                                    sprite.direction = val;
+                                else if (spriteInfoActiveField == 3) {
+                                    sprite.scale = val / 100.0f;
+                                    if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                                }
+                            } catch (...) {}
+                        }
+                        spriteInfoActiveField = siField;
+                        float scrX2 = sprite.x - STAGE_WIDTH/2.0f + sprite.w/2.0f;
+                        float scrY2 = -(sprite.y - STAGE_HEIGHT/2.0f + sprite.h/2.0f);
+                        std::ostringstream ss2;
+                        ss2 << std::fixed << std::setprecision(1);
+                        if (siField == 0) ss2 << scrX2;
+                        else if (siField == 1) ss2 << scrY2;
+                        else if (siField == 2) ss2 << sprite.direction;
+                        else if (siField == 3) ss2 << sprite.scale*100.0f;
+                        spriteInfoEditText = ss2.str();
+                        SDL_StartTextInput();
+                        continue;
+                    } else if (spriteInfoActiveField >= 0) {
+                        if (!spriteInfoEditText.empty()) {
+                            try {
+                                float val = std::stof(spriteInfoEditText);
+                                if (spriteInfoActiveField == 0)
+                                    sprite.x = val + STAGE_WIDTH/2.0f - sprite.w/2.0f;
+                                else if (spriteInfoActiveField == 1)
+                                    sprite.y = -val + STAGE_HEIGHT/2.0f - sprite.h/2.0f;
+                                else if (spriteInfoActiveField == 2)
+                                    sprite.direction = val;
+                                else if (spriteInfoActiveField == 3) {
+                                    sprite.scale = val / 100.0f;
+                                    if (sprite.scale < 0.01f) sprite.scale = 0.01f;
+                                }
+                            } catch (...) {}
+                        }
+                        spriteInfoActiveField = -1;
+                        spriteInfoEditText = "";
+                        SDL_StopTextInput();
+                    }
+                }
+
                 if (costumePanel.visible &&
                     point_in_rect(mx, my, costumePanel.x, costumePanel.y,
                                   costumePanel.w, costumePanel.h)) {
@@ -683,9 +800,16 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                         activeInput = clicked_inp;
                         activeInput->editing = true;
                         activeInput->value   = "";
-                        SDL_StartTextInput();
+                        if (g_hasOperatorResult) {
+                            activeInput->value = float_to_str(g_lastOperatorResult);
+                            activeInput->editing = false;
+                            g_hasOperatorResult = false;
+                        } else {
+                            SDL_StartTextInput();
+                        }
                         continue;
                     }
+
                     handle_mouse_down(e, workspaceBlocks, &draggedBlock);
                 }
             }
@@ -867,7 +991,8 @@ addPB(BLOCK_VARIABLES, "hide variable score");
         draw_operator_result(renderer, fontSmall, &stage);
         draw_variable_monitors(renderer, fontSmall, varsPanel, &stage);
         draw_costume_panel(renderer, fontSmall, fontBig, costumePanel, &sprite);
-        draw_sprite_info_panel(renderer, fontSmall, fontBig, &sprite);
+        draw_sprite_info_panel(renderer, fontSmall, fontBig, &sprite,
+                               spriteInfoActiveField, spriteInfoEditText);
         draw_play_stop_buttons(renderer, fontSmall, playBtn, stopBtn,
                                playTex, stopTex, scriptRunner.running);
 

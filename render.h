@@ -600,8 +600,11 @@ void draw_costume_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// activeField: -1 = none, 0=x, 1=y, 2=dir, 3=size
+// editText: متن در حال ویرایش
 void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
-                             Sprite* sprite)
+                             Sprite* sprite, int activeField = -1,
+                             const std::string& editText = "")
 {
     int px = SPRITE_INFO_X, py = SPRITE_INFO_Y;
     int pw = SPRITE_INFO_W, ph = SPRITE_INFO_H;
@@ -624,21 +627,61 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
         return ss.str();
     };
 
-    int tx = px+10, ty = py+38, lineH = 20;
+    int tx = px+10, ty = py+38, lineH = 24;
     float scrX = sprite->x - STAGE_WIDTH/2.0f + sprite->w/2.0f;
     float scrY = -(sprite->y - STAGE_HEIGHT/2.0f + sprite->h/2.0f);
 
-    auto drawRow = [&](const std::string& label, const std::string& val) {
+    int fieldIdx = 0;
+    auto drawRow = [&](const std::string& label, const std::string& val, bool editable) {
         draw_text(r, font, label, tx, ty, {120,120,120,255});
-        draw_text(r, font, val, tx+60, ty, COLOR_TEXT_DARK);
+
+        // زمینه فیلد
+        SDL_Rect fieldBg = {tx+50, ty-2, pw-60, 18};
+        if (editable) {
+            bool isActive = (activeField == fieldIdx);
+            if (isActive) {
+                SDL_SetRenderDrawColor(r, 220, 240, 255, 255);
+                SDL_RenderFillRect(r, &fieldBg);
+                SDL_SetRenderDrawColor(r, 80, 140, 220, 255);
+                SDL_RenderDrawRect(r, &fieldBg);
+                // نمایش متن ویرایش + مکان‌نما
+                std::string display = editText + "|";
+                draw_text(r, font, display, tx+54, ty, COLOR_TEXT_DARK);
+            } else {
+                SDL_SetRenderDrawColor(r, 235, 235, 240, 255);
+                SDL_RenderFillRect(r, &fieldBg);
+                SDL_SetRenderDrawColor(r, 180, 180, 200, 255);
+                SDL_RenderDrawRect(r, &fieldBg);
+                draw_text(r, font, val, tx+54, ty, COLOR_TEXT_DARK);
+            }
+        } else {
+            draw_text(r, font, val, tx+54, ty, COLOR_TEXT_DARK);
+        }
         ty += lineH;
+        if (editable) fieldIdx++;
     };
-    drawRow("x:",      fmt(scrX));
-    drawRow("y:",      fmt(scrY));
-    drawRow("dir:",    fmt(sprite->direction)+"°");
-    drawRow("size:",   fmt(sprite->scale*100.0f)+"%");
-    drawRow("shown:",  sprite->visible ? "yes" : "no");
-    drawRow("costume:", std::to_string(sprite->currentCostume+1));
+    drawRow("x:",      fmt(scrX),                   true);
+    drawRow("y:",      fmt(scrY),                   true);
+    drawRow("dir:",    fmt(sprite->direction)+"°",   true);
+    drawRow("size:",   fmt(sprite->scale*100.0f)+"%",true);
+    drawRow("shown:",  sprite->visible ? "yes" : "no", false);
+    drawRow("costume:", std::to_string(sprite->currentCostume+1), false);
+}
+
+// محاسبه شماره فیلد با توجه به موقعیت کلیک
+// برمی‌گرداند: 0=x,1=y,2=dir,3=size یا -1
+inline int sprite_info_field_at(int mx, int my) {
+    int px = SPRITE_INFO_X, py = SPRITE_INFO_Y;
+    int pw = SPRITE_INFO_W;
+    int tx = px+10, ty = py+38, lineH = 24;
+    for (int i = 0; i < 4; i++) {
+        SDL_Rect fieldBg = {tx+50, ty-2, pw-60, 18};
+        if (mx >= fieldBg.x && mx < fieldBg.x+fieldBg.w &&
+            my >= fieldBg.y && my < fieldBg.y+fieldBg.h)
+            return i;
+        ty += lineH;
+    }
+    return -1;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
