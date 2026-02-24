@@ -12,6 +12,8 @@ add_executable(Scratch_fop main.cpp
         engine.h
         "costume_editor.h"
         "costume_editor.h"
-        Audio.h)
+        Audio.h
+        SaveSystem.h
+        OperatorManager.h)
 target_link_libraries(${PROJECT_NAME} -lconio)
 target_link_libraries(${PROJECT_NAME} -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer)

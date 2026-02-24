@@ -15,25 +15,6 @@
 
 using namespace std;
 
-<<<<<<< HEAD
-vector<BlockData> convertToSaveData(const vector<Block*>& blocks) {
-    vector<BlockData> data;
-    for (auto b : blocks) {
-        data.push_back({ (int)b->type, b->text, "" });
-    }
-    return data;
-}
-
-void loadToWorkspace(const vector<BlockData>& data, vector<Block*>& workspaceBlocks) {
-    for (auto b : workspaceBlocks) delete b;
-    workspaceBlocks.clear();
-    for (auto& d : data) {
-        Block* nb = new Block{ (int)workspaceBlocks.size() + 1, (BlockType)d.type, d.opcode, 250, 250, BLOCK_W, BLOCK_H, false, 0, 0, nullptr, nullptr };
-        init_block_inputs(nb);
-        workspaceBlocks.push_back(nb);
-    }
-}
-
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
     IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG);
@@ -148,10 +129,7 @@ int main(int argc, char* argv[]) {
         paletteBlocks.push_back(b);
     };
 
-<<<<<<< HEAD
-=======
     // (تمام addPB ها عین قبل - اینجا کپی می‌کنی)
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_MOTION, "move 10 steps");
     addPB(BLOCK_MOTION, "turn 15 degrees");
     addPB(BLOCK_MOTION, "turn left 15 degrees");
@@ -166,10 +144,6 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_MOTION, "change y by 10");
     addPB(BLOCK_MOTION, "set y to 0");
     addPB(BLOCK_MOTION, "if on edge, bounce");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_LOOKS, "say Hello!");
     addPB(BLOCK_LOOKS, "say Hello! for 2 secs");
     addPB(BLOCK_LOOKS, "think Hmm...");
@@ -179,10 +153,6 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_LOOKS, "switch costume to 0");
     addPB(BLOCK_LOOKS, "set size to 100");
     addPB(BLOCK_LOOKS, "change size by 10");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_SOUND, "play sound Meow");
     addPB(BLOCK_SOUND, "play sound Meow until done");
     addPB(BLOCK_SOUND, "stop all sounds");
@@ -192,20 +162,12 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_SOUND, "change pitch effect by 10");
     addPB(BLOCK_SOUND, "set pitch effect to 100");
     addPB(BLOCK_SOUND, "clear sound effects");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_EVENT, "when flag clicked");
     addPB(BLOCK_EVENT, "when key pressed");
     addPB(BLOCK_EVENT, "when sprite clicked");
     addPB(BLOCK_EVENT, "when backdrop switches to");
     addPB(BLOCK_EVENT, "broadcast message");
     addPB(BLOCK_EVENT, "broadcast message and wait");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_CONTROL, "wait 1 secs");
     addPB(BLOCK_CONTROL, "repeat 10");
     addPB(BLOCK_CONTROL, "repeat 3");
@@ -216,10 +178,6 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_CONTROL, "stop all");
     addPB(BLOCK_CONTROL, "stop this script");
     addPB(BLOCK_CONTROL, "stop other scripts");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_SENSING, "ask What's your name? and wait");
     addPB(BLOCK_SENSING, "answer");
     addPB(BLOCK_SENSING, "touching mouse-pointer?");
@@ -233,10 +191,6 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_SENSING, "timer");
     addPB(BLOCK_SENSING, "reset timer");
     addPB(BLOCK_SENSING, "distance to mouse-pointer");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_OPERATORS, "() + ()");
     addPB(BLOCK_OPERATORS, "() - ()");
     addPB(BLOCK_OPERATORS, "() * ()");
@@ -261,10 +215,6 @@ int main(int argc, char* argv[]) {
     addPB(BLOCK_OPERATORS, "letter 1 of hello");
     addPB(BLOCK_OPERATORS, "length of hello");
     addPB(BLOCK_OPERATORS, "contains hello world");
-<<<<<<< HEAD
-
-=======
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
     addPB(BLOCK_VARIABLES, "set score to 0");
     addPB(BLOCK_VARIABLES, "change score by 1");
     addPB(BLOCK_VARIABLES, "show variable score");
@@ -323,17 +273,6 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-<<<<<<< HEAD
-            if (e.type == SDL_KEYDOWN) {
-                if (activeInput) {
-                    if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER ||
-                        e.key.keysym.sym == SDLK_ESCAPE) {
-                        activeInput->editing = false;
-                        activeInput = nullptr;
-                        SDL_StopTextInput();
-                    } else if (e.key.keysym.sym == SDLK_BACKSPACE && !activeInput->value.empty()) {
-                        activeInput->value.pop_back();
-=======
             if (activeInput && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER ||
                     e.key.keysym.sym == SDLK_ESCAPE) {
@@ -366,86 +305,48 @@ int main(int argc, char* argv[]) {
                         addPB(BLOCK_VARIABLES, "change " + varsPanel.newVarName + " by 1");
                         addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
                         addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
                     }
-                    continue;
+                    varsPanel.creating = false;
+                    varsPanel.newVarName = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    varsPanel.creating = false;
+                    varsPanel.newVarName = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !varsPanel.newVarName.empty()) {
+                    varsPanel.newVarName.pop_back();
                 }
-
-                if (e.key.keysym.sym == SDLK_s && (SDL_GetModState() & KMOD_CTRL)) {
-                    saveToFile("project.txt", convertToSaveData(workspaceBlocks));
-                    cout << "Saved to project.txt" << endl;
-                }
-                if (e.key.keysym.sym == SDLK_l && (SDL_GetModState() & KMOD_CTRL)) {
-                    auto data = loadFromFile("project.txt");
-                    loadToWorkspace(data, workspaceBlocks);
-                    cout << "Loaded from project.txt" << endl;
-                }
-
-                if (varsPanel.creating) {
-                    if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
-                        if (!varsPanel.newVarName.empty()) {
-                            Variable nv;
-                            nv.name = varsPanel.newVarName;
-                            nv.value = 0.0f;
-                            nv.showOnStage = true;
-                            varsPanel.variables.push_back(nv);
-                            addPB(BLOCK_VARIABLES, "set " + varsPanel.newVarName + " to 0");
-                            addPB(BLOCK_VARIABLES, "change " + varsPanel.newVarName + " by 1");
-                            addPB(BLOCK_VARIABLES, "show variable " + varsPanel.newVarName);
-                            addPB(BLOCK_VARIABLES, "hide variable " + varsPanel.newVarName);
-                        }
-                        varsPanel.creating = false;
-                        varsPanel.newVarName = "";
-                        SDL_StopTextInput();
-                    } else if (e.key.keysym.sym == SDLK_ESCAPE) {
-                        varsPanel.creating = false;
-                        varsPanel.newVarName = "";
-                        SDL_StopTextInput();
-                    } else if (e.key.keysym.sym == SDLK_BACKSPACE && !varsPanel.newVarName.empty()) {
-                        varsPanel.newVarName.pop_back();
-                    }
-                    continue;
-                }
-
-                if (myBlocksCreating) {
-                    if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
-                        if (!newBlockName.empty()) {
-                            customBlocks.push_back(newBlockName);
-                            addPB(BLOCK_MYBLOCKS, newBlockName);
-                        }
-                        myBlocksCreating = false;
-                        newBlockName = "";
-                        SDL_StopTextInput();
-                    } else if (e.key.keysym.sym == SDLK_ESCAPE) {
-                        myBlocksCreating = false;
-                        newBlockName = "";
-                        SDL_StopTextInput();
-                    } else if (e.key.keysym.sym == SDLK_BACKSPACE && !newBlockName.empty()) {
-                        newBlockName.pop_back();
-                    }
-                    continue;
-                }
+                continue;
+            }
+            if (varsPanel.creating && e.type == SDL_TEXTINPUT) {
+                varsPanel.newVarName += e.text.text;
+                continue;
             }
 
-            if (e.type == SDL_TEXTINPUT) {
-                if (activeInput) {
-                    string ch = e.text.text;
-                    for (char c : ch) {
-                        if (isdigit(c) || c == '.' || (c == '-' && activeInput->value.empty()))
-                            activeInput->value += c;
+            if (myBlocksCreating && e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                    if (!newBlockName.empty()) {
+                        customBlocks.push_back(newBlockName);
+                        addPB(BLOCK_MYBLOCKS, newBlockName);
                     }
-                    continue;
+                    myBlocksCreating = false;
+                    newBlockName = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    myBlocksCreating = false;
+                    newBlockName = "";
+                    SDL_StopTextInput();
+                } else if (e.key.keysym.sym == SDLK_BACKSPACE && !newBlockName.empty()) {
+                    newBlockName.pop_back();
                 }
-                if (varsPanel.creating) {
-                    varsPanel.newVarName += e.text.text;
-                    continue;
-                }
-                if (myBlocksCreating) {
-                    newBlockName += e.text.text;
-                    continue;
-                }
+                continue;
+            }
+            if (myBlocksCreating && e.type == SDL_TEXTINPUT) {
+                newBlockName += e.text.text;
+                continue;
             }
 
+            // SCROLL
             if (e.type == SDL_MOUSEWHEEL) {
                 int mx, my;
                 SDL_GetMouseState(&mx, &my);
@@ -460,6 +361,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
+            // MOUSE DOWN
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
                 int mx = e.button.x, my = e.button.y;
 
@@ -587,10 +489,7 @@ int main(int argc, char* argv[]) {
         isVarCat   = (palette.activeCategory == CAT_VARIABLES);
         isMyBlocks = (palette.activeCategory == CAT_MYBLOCKS);
 
-<<<<<<< HEAD
-=======
         // ── RENDER ────────────────────────────────────────────────────────────
->>>>>>> 7afa4fc0d11f66f50b1e2af6c34f12d8daecd0b0
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
@@ -733,6 +632,7 @@ int main(int argc, char* argv[]) {
         SDL_RenderPresent(renderer);
     }
 
+    // Cleanup
     if (costumeEditor.canvasTex)  SDL_DestroyTexture(costumeEditor.canvasTex);
     if (costumeEditor.canvasSurf) SDL_FreeSurface(costumeEditor.canvasSurf);
     for (auto b : paletteBlocks)   delete b;
