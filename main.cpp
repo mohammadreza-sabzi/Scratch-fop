@@ -15,6 +15,7 @@
 #include "tab_bar.h"
 #include "audio.h"
 #include "Sound_panel.h"
+#include "OperatorManager.h"
 
 using namespace std;
 
@@ -73,7 +74,7 @@ int main(int argc, char* argv[]) {
     SDL_Rect bulbBtn     = {0,0,0,0};
     SDL_Rect saveIconBtn = {0,0,0,0};
     SDL_Rect loadIconBtn = {0,0,0,0};
-    SDL_Rect newIconBtn  = {0,0,0,0};   // دکمه New Project
+    SDL_Rect newIconBtn  = {0,0,0,0};
 
     Uint32 lastCostumeClickTime = 0;
     int    lastCostumeClickIdx  = -1;
@@ -129,6 +130,7 @@ int main(int argc, char* argv[]) {
     addCat(CAT_OPERATORS, "Operators", COLOR_OPERATORS);
     addCat(CAT_VARIABLES, "Variables", COLOR_VARIABLES);
     addCat(CAT_MYBLOCKS,  "My Blocks", COLOR_MYBLOCKS);
+    addCat(CAT_EXTENSION, "Pen",       COLOR_EXTENSION);
 
     vector<Block*> paletteBlocks;
     int bid = 1;
@@ -151,7 +153,6 @@ int main(int argc, char* argv[]) {
         paletteBlocks.push_back(b);
     };
 
-   // ── MOTION ──aa
 addPB(BLOCK_MOTION, "move () steps");
 addPB(BLOCK_MOTION, "turn right () degrees");
 addPB(BLOCK_MOTION, "turn left () degrees");
@@ -167,7 +168,6 @@ addPB(BLOCK_MOTION, "change y by ()");
 addPB(BLOCK_MOTION, "set y to ()");
 addPB(BLOCK_MOTION, "if on edge, bounce");
 
-// ── LOOKS ──
 addPB(BLOCK_LOOKS, "say ()");
 addPB(BLOCK_LOOKS, "say () for () secs");
 addPB(BLOCK_LOOKS, "think ()");
@@ -177,8 +177,9 @@ addPB(BLOCK_LOOKS, "next costume");
 addPB(BLOCK_LOOKS, "switch costume to ()");
 addPB(BLOCK_LOOKS, "set size to ()");
 addPB(BLOCK_LOOKS, "change size by ()");
+addPB(BLOCK_LOOKS, "switch backdrop to ()");
+addPB(BLOCK_LOOKS, "next backdrop");
 
-// ── SOUND ──
 addPB(BLOCK_SOUND, "play sound ()");
 addPB(BLOCK_SOUND, "play sound () until done");
 addPB(BLOCK_SOUND, "stop all sounds");
@@ -186,12 +187,10 @@ addPB(BLOCK_SOUND, "change volume by ()");
 addPB(BLOCK_SOUND, "set volume to ()");
 addPB(BLOCK_SOUND, "clear sound effects");
 
-// ── EVENTS ──
 addPB(BLOCK_EVENT, "when flag clicked");
 addPB(BLOCK_EVENT, "when key pressed");
 addPB(BLOCK_EVENT, "when sprite clicked");
 
-// ── CONTROL ──
 addPB(BLOCK_CONTROL, "wait () secs");
 addPB(BLOCK_CONTROL, "repeat ()");
 addPB(BLOCK_CONTROL, "forever");
@@ -202,7 +201,6 @@ addPB(BLOCK_CONTROL, "stop all");
 addPB(BLOCK_CONTROL, "stop this script");
 addPB(BLOCK_CONTROL, "stop other scripts");
 
-// ── SENSING ──
 addPB(BLOCK_SENSING, "ask () and wait");
 addPB(BLOCK_SENSING, "answer");
 addPB(BLOCK_SENSING, "touching mouse-pointer?");
@@ -213,8 +211,8 @@ addPB(BLOCK_SENSING, "mouse x");
 addPB(BLOCK_SENSING, "mouse y");
 addPB(BLOCK_SENSING, "timer");
 addPB(BLOCK_SENSING, "reset timer");
+addPB(BLOCK_SENSING, "distance to mouse-pointer");
 
-// ── OPERATORS ──
 addPB(BLOCK_OPERATORS, "() + ()");
 addPB(BLOCK_OPERATORS, "() - ()");
 addPB(BLOCK_OPERATORS, "() * ()");
@@ -239,11 +237,18 @@ addPB(BLOCK_OPERATORS, "join () ()");
 addPB(BLOCK_OPERATORS, "letter () of ()");
 addPB(BLOCK_OPERATORS, "length of ()");
 
-// ── VARIABLES ──
 addPB(BLOCK_VARIABLES, "set score to ()");
 addPB(BLOCK_VARIABLES, "change score by ()");
 addPB(BLOCK_VARIABLES, "show variable score");
 addPB(BLOCK_VARIABLES, "hide variable score");
+
+addPB(BLOCK_EXTENSION, "pen down");
+addPB(BLOCK_EXTENSION, "pen up");
+addPB(BLOCK_EXTENSION, "erase all");
+addPB(BLOCK_EXTENSION, "stamp");
+addPB(BLOCK_EXTENSION, "set pen color to ()");
+addPB(BLOCK_EXTENSION, "set pen size to ()");
+addPB(BLOCK_EXTENSION, "change pen size by ()");
 
     VariablesPanel varsPanel;
     varsPanel.x = 0; varsPanel.y = 0;
@@ -292,24 +297,24 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
     g_soundsPanel = &soundsPanel;
 
-    // متغیرهای ویرایش sprite info panel
-    int   spriteInfoActiveField = -1;   // 0=x,1=y,2=dir,3=size  (-1=none)
+    g_renderer = renderer;
+    g_stage    = &stage;
+    pen_trail_init(renderer);
+
+    int   spriteInfoActiveField = -1;
     std::string spriteInfoEditText = "";
 
     SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 42, 42};
     SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H , 32, 32};
-    SDL_Rect pauseBtn= {STAGE_X + 10 + 44 + 38, STAGE_Y - TAB_H - 2, 38, 32}; // دکمه pause
+    SDL_Rect pauseBtn= {STAGE_X + 10 + 44 + 38, STAGE_Y - TAB_H - 2, 38, 32};
 
-    // ── وضعیت confirm dialog (New Project) ────────────────────────────────
     bool confirmNewProject = false;
 
-    // ── دیالوگ سیو/لود فایل ─────────────────────────────────────────────────
     bool saveDialogOpen = false;
     bool loadDialogOpen = false;
     std::string fileDialogInput = "project.scratch";
     bool fileDialogEditing = false;
 
-    // ── دیالوگ آپلود اسپرایت ────────────────────────────────────────────────
     bool spriteUploadOpen = false;
     std::string spriteUploadPath = "";
     bool spriteUploadEditing = false;
@@ -317,7 +322,7 @@ addPB(BLOCK_VARIABLES, "hide variable score");
     vector<Block*> workspaceBlocks;
     Block* draggedBlock = nullptr;
     BlockInput* activeInput = nullptr;
-    std::string askInputText = "";   // متنی که کاربر در ask تایپ می‌کند
+    std::string askInputText = "";
     bool askInputActive = false;
     bool   quit         = false;
     SDL_Event e;
@@ -367,7 +372,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     continue;
                 }
 
-                // ── دیالوگ سیو فایل ─────────────────────────────────────────
                 if ((saveDialogOpen || loadDialogOpen) && fileDialogEditing) {
                     if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
                         if (saveDialogOpen) {
@@ -392,7 +396,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     continue;
                 }
 
-                // ── دیالوگ آپلود اسپرایت ─────────────────────────────────────
                 if (spriteUploadOpen && spriteUploadEditing) {
                     if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
                         if (!spriteUploadPath.empty()) {
@@ -431,11 +434,9 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     continue;
                 }
 
-                // ── رویداد when key pressed ──────────────────────────────────
                 if (!g_askPending && !varsPanel.creating && !myBlocksCreating
                     && spriteInfoActiveField < 0) {
                     std::string keyName = SDL_GetKeyName(e.key.keysym.sym);
-                    // به lowercase تبدیل کن
                     for (auto& c : keyName) c = (char)tolower(c);
                     Block* keyBlock = find_key_event(workspaceBlocks, keyName);
                     if (keyBlock && keyBlock->next) {
@@ -517,7 +518,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 continue;
             }
 
-            // ─── handle ask/answer input ────────────────────────────────────────────
             if (g_askPending) {
                 if (e.type == SDL_KEYDOWN) {
                     if (e.key.keysym.sym == SDLK_RETURN ||
@@ -558,7 +558,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 if (e.key.keysym.sym == SDLK_RETURN ||
                     e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!varsPanel.newVarName.empty()) {
-                        // جلوگیری از نامگذاری تکراری
                         bool isDuplicate = false;
                         for (auto& v : varsPanel.variables)
                             if (v.name == varsPanel.newVarName) { isDuplicate = true; break; }
@@ -617,13 +616,12 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 continue;
             }
 
-            // ── ورودی کیبورد برای فیلدهای Sprite Info ─────────────────────
             if (spriteInfoActiveField >= 0 && e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_RETURN ||
                     e.key.keysym.sym == SDLK_KP_ENTER) {
                     if (!spriteInfoEditText.empty()) {
                         if (spriteInfoActiveField == 4) {
-                            sprite.name = spriteInfoEditText;  // ذخیره نام
+                            sprite.name = spriteInfoEditText;
                         } else {
                             try {
                                 float val = std::stof(spriteInfoEditText);
@@ -651,7 +649,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                            !spriteInfoEditText.empty()) {
                     spriteInfoEditText.pop_back();
                 } else if (e.key.keysym.sym == SDLK_TAB) {
-                    // Tab برای رفتن به فیلد بعدی
                     if (!spriteInfoEditText.empty()) {
                         if (spriteInfoActiveField == 4) {
                             sprite.name = spriteInfoEditText;
@@ -755,7 +752,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     SDL_StartTextInput();
                     continue;
                 }
-                // ── New Project با سوال سیو ────────────────────────────────
                 if (point_in_rect(mx, my, newIconBtn.x, newIconBtn.y,
                                   newIconBtn.w, newIconBtn.h)) {
                     confirmNewProject = true;
@@ -767,16 +763,14 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                         handle_sounds_panel_click(mx, my, soundsPanel);
                         continue;
                     }
-                    // workspace کلیک: volume/pitch sliders + play/stop
                     handle_sounds_workspace_click(mx, my, soundsPanel);
-                    continue; // بقیه کلیک‌ها در TAB_SOUNDS ignore
+                    continue;
                 }
 
-                // ── Play / Stop / Pause script ───────────────────────────────
                 if (point_in_rect(mx, my, playBtn.x, playBtn.y,
                                   playBtn.w, playBtn.h)) {
                     if (scriptRunner.paused) {
-                        scriptRunner.togglePause(); // ادامه از محل توقف
+                        scriptRunner.togglePause();
                     } else {
                         Block* s = find_script_start(workspaceBlocks);
                         if (s) scriptRunner.start(s, &varsPanel.variables);
@@ -808,11 +802,10 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     continue;
                 }
 
-                // ── Sprite Info Panel (فیلدهای قابل ویرایش) ────────────────
+
                 {
                     int siField = sprite_info_field_at(mx, my);
                     if (siField >= 0) {
-                        // ذخیره فیلد قبلی
                         if (spriteInfoActiveField >= 0 && !spriteInfoEditText.empty()) {
                             if (spriteInfoActiveField == 4) {
                                 sprite.name = spriteInfoEditText;
@@ -868,12 +861,36 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                         spriteInfoEditText = "";
                         SDL_StopTextInput();
                     }
+
+
+                    {
+                        int px2 = SPRITE_INFO_X, py2 = SPRITE_INFO_Y;
+                        int pw2 = SPRITE_INFO_W;
+                        int btnY2 = py2 + 38 + 7 * 24 + 4;
+                        int btnW2 = (pw2 - 20) / 2;
+                        SDL_Rect showBtn2  = {px2 + 6, btnY2, btnW2, 22};
+                        SDL_Rect deleteBtn2 = {px2 + 6 + btnW2 + 4, btnY2, btnW2, 22};
+
+                        if (point_in_rect(mx, my, showBtn2.x, showBtn2.y,
+                                          showBtn2.w, showBtn2.h)) {
+                            sprite.visible = !sprite.visible;
+                            continue;
+                        }
+                        if (point_in_rect(mx, my, deleteBtn2.x, deleteBtn2.y,
+                                          deleteBtn2.w, deleteBtn2.h)) {
+                            sprite.visible = false;
+                            sprite.sayText = "";
+                            sprite.penDown = false;
+                            pen_trail_clear(renderer);
+                            continue;
+                        }
+                    }
                 }
 
                 if (costumePanel.visible &&
                     point_in_rect(mx, my, costumePanel.x, costumePanel.y,
                                   costumePanel.w, costumePanel.h)) {
-                    // بررسی دکمه‌های Upload و Delete
+
                     {
                         int btnY = costumePanel.y + costumePanel.h - 38;
                         int halfW = (costumePanel.w - 12) / 2;
@@ -961,7 +978,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     handle_mouse_down(e, workspaceBlocks, &draggedBlock);
                 }
 
-                // ── کلیک روی sprite در stage (when sprite clicked) ─────────
                 if (point_in_rect(mx, my, STAGE_X, STAGE_Y, STAGE_WIDTH, STAGE_HEIGHT)) {
                     float sx = sprite.x + STAGE_X;
                     float sy = sprite.y + STAGE_Y;
@@ -980,22 +996,22 @@ addPB(BLOCK_VARIABLES, "hide variable score");
             }
             else if (e.type == SDL_MOUSEMOTION) {
                 handle_mouse_motion(e, &draggedBlock, workspace);
-                // drag روی sliders صدا (LMB نگه داشته شده)
                 if (activeTab == TAB_SOUNDS &&
                     (e.motion.state & SDL_BUTTON(1))) {
                     int mx2 = e.motion.x, my2 = e.motion.y;
                     handle_sounds_workspace_click(mx2, my2, soundsPanel);
                 }
             }
-        } // end event loop
+        }
 
-        // ── Update ────────────────────────────────────────────────────────────
         layout_palette_blocks(paletteBlocks, palette);
         scriptRunner.update(&sprite);
         if (sprite.sayTimer > 0) {
             sprite.sayTimer--;
             if (sprite.sayTimer == 0) sprite.sayText = "";
         }
+
+        pen_trail_update(renderer, &sprite);
 
         audio_update(soundsPanel);
 
@@ -1005,7 +1021,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
         SDL_SetRenderDrawColor(renderer, 200, 200, 205, 255);
         SDL_RenderClear(renderer);
 
-        // header bar
         SDL_SetRenderDrawColor(renderer,
             COLOR_HEADER_BAR.r, COLOR_HEADER_BAR.g, COLOR_HEADER_BAR.b, 255);
         SDL_Rect headerBar = { 0, 0, SCREEN_WIDTH, HEADER_H };
@@ -1084,15 +1099,12 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
         if (activeTab == TAB_CODE) {
             draw_workspace_bg(renderer, workspace);
-            // ابتدا layout بلاک‌های داخل C ها
             for (Block* b : workspaceBlocks) {
                 if (b->isCShaped) layout_inner_blocks(b);
             }
-            // رندر همه بلاک‌ها
             for (Block* b : workspaceBlocks) {
                 update_block_input_rects(b);
                 draw_block(renderer, fontSmall, b);
-                // رندر بلاک‌های داخل C
                 if (b->isCShaped) {
                     Block* inner = b->innerFirst;
                     while (inner) {
@@ -1150,8 +1162,8 @@ addPB(BLOCK_VARIABLES, "hide variable score");
         }
 
         draw_stage(renderer, &stage);
+        pen_trail_render(renderer, &stage);
         draw_sprite(renderer, &sprite, &stage, fontSmall);
-        // رندر ask input اگر فعال است
         if (g_askPending) {
             draw_ask_input(renderer, fontSmall, &stage, g_askQuestion, askInputText);
         }
@@ -1163,7 +1175,7 @@ addPB(BLOCK_VARIABLES, "hide variable score");
         draw_play_stop_buttons(renderer, fontSmall, playBtn, stopBtn,
                                playTex, stopTex, scriptRunner.running);
 
-        // ── دکمه Pause ────────────────────────────────────────────────────────
+
         {
             SDL_Color pauseCol = scriptRunner.paused
                 ? SDL_Color{220, 160, 30, 255}
@@ -1178,7 +1190,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     pauseBtn, COLOR_TEXT_WHITE);
         }
 
-        // ── File Save/Load Dialog ────────────────────────────────────────────
         auto drawFileDialog = [&](const std::string& title, const std::string& btnLabel,
                                   SDL_Color btnColor) {
             int ox = SCREEN_WIDTH/2 - 200, oy = SCREEN_HEIGHT/2 - 55;
@@ -1235,7 +1246,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
         else if (loadDialogOpen)
             drawFileDialog("Load Project From:", "Load", {60, 140, 220, 255});
 
-        // ── Sprite Upload Dialog ─────────────────────────────────────────────
         if (spriteUploadOpen) {
             int ox = SCREEN_WIDTH/2 - 200, oy = SCREEN_HEIGHT/2 - 55;
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -1304,7 +1314,6 @@ addPB(BLOCK_VARIABLES, "hide variable score");
             prevSU = curSU;
         }
 
-        // ── Confirm New Project Dialog ────────────────────────────────────────
         if (confirmNewProject) {
             int ox = SCREEN_WIDTH/2 - 180, oy = SCREEN_HEIGHT/2 - 60;
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -1320,23 +1329,19 @@ addPB(BLOCK_VARIABLES, "hide variable score");
             if (fontBig)
                 draw_text(renderer, fontBig, "Save before new project?",
                           ox+16, oy+14, COLOR_TEXT_DARK);
-            // دکمه Save & New
             SDL_Rect btnSaveNew = {ox+14, oy+60, 100, 36};
             SDL_SetRenderDrawColor(renderer, 60, 180, 80, 255);
             SDL_RenderFillRect(renderer, &btnSaveNew);
             if (fontSmall) draw_text_centered(renderer, fontSmall, "Save & New", btnSaveNew, COLOR_TEXT_WHITE);
-            // دکمه New (بدون سیو)
             SDL_Rect btnJustNew = {ox+126, oy+60, 100, 36};
             SDL_SetRenderDrawColor(renderer, 220, 100, 40, 255);
             SDL_RenderFillRect(renderer, &btnJustNew);
             if (fontSmall) draw_text_centered(renderer, fontSmall, "New", btnJustNew, COLOR_TEXT_WHITE);
-            // دکمه Cancel
             SDL_Rect btnCancel2 = {ox+238, oy+60, 100, 36};
             SDL_SetRenderDrawColor(renderer, 160, 160, 170, 255);
             SDL_RenderFillRect(renderer, &btnCancel2);
             if (fontSmall) draw_text_centered(renderer, fontSmall, "Cancel", btnCancel2, COLOR_TEXT_WHITE);
 
-            // handle clicks for confirm dialog
             int cmx, cmy;
             Uint32 cmb = SDL_GetMouseState(&cmx, &cmy);
             static bool prevClick = false;

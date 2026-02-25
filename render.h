@@ -63,6 +63,7 @@ SDL_Color get_block_color(BlockType type) {
         case BLOCK_OPERATORS: return COLOR_OPERATORS;
         case BLOCK_VARIABLES: return COLOR_VARIABLES;
         case BLOCK_MYBLOCKS:  return COLOR_MYBLOCKS;
+        case BLOCK_EXTENSION: return COLOR_EXTENSION;
         default: return {100,100,100,255};
     }
 }
@@ -541,13 +542,18 @@ void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
 
 void draw_stage(SDL_Renderer* r, Stage* stage) {
     if (!stage) return;
-    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_Rect rc = {stage->x, stage->y, stage->w, stage->h};
-    SDL_RenderFillRect(r, &rc);
-    SDL_SetRenderDrawColor(r, 230, 230, 230, 255);
-    for (int x = stage->x+20; x < stage->x+stage->w; x+=40)
-        for (int y = stage->y+20; y < stage->y+stage->h; y+=40)
-            SDL_RenderDrawPoint(r, x, y);
+    if (stage->bgTexture) {
+        SDL_RenderCopy(r, stage->bgTexture, nullptr, &rc);
+    } else {
+        SDL_SetRenderDrawColor(r,
+            stage->color.r, stage->color.g, stage->color.b, 255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 230, 230, 230, 255);
+        for (int x = stage->x+20; x < stage->x+stage->w; x+=40)
+            for (int y = stage->y+20; y < stage->y+stage->h; y+=40)
+                SDL_RenderDrawPoint(r, x, y);
+    }
     SDL_SetRenderDrawColor(r, 160, 160, 160, 255);
     SDL_RenderDrawRect(r, &rc);
 }
@@ -810,6 +816,24 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     drawRow("size:",   fmt(sprite->scale*100.0f)+"%",true);
     drawRow("shown:",  sprite->visible ? "yes" : "no", false);
     drawRow("costume:", std::to_string(sprite->currentCostume+1), false);
+
+    int btnY = ty + 4;
+    int btnW = (pw - 20) / 2;
+
+    SDL_Rect showBtn  = {px + 6, btnY, btnW, 22};
+    SDL_Rect deleteBtn = {px + 6 + btnW + 4, btnY, btnW, 22};
+
+    SDL_SetRenderDrawColor(r,
+        sprite->visible ? 80 : 140,
+        sprite->visible ? 160 : 200,
+        sprite->visible ? 80  : 80, 255);
+    SDL_RenderFillRect(r, &showBtn);
+    if (font) draw_text_centered(r, font,
+        sprite->visible ? "Hide" : "Show", showBtn, COLOR_TEXT_WHITE);
+
+    SDL_SetRenderDrawColor(r, 200, 60, 60, 255);
+    SDL_RenderFillRect(r, &deleteBtn);
+    if (font) draw_text_centered(r, font, "Delete", deleteBtn, COLOR_TEXT_WHITE);
 }
 
 inline int sprite_info_field_at(int mx, int my) {

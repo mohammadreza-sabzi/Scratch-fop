@@ -11,6 +11,7 @@
 #include <SDL2/SDL.h>
 #include "structs.h"
 #include "globals.h"
+#include "OperatorManager.h"
 
 
 #ifndef M_PI
@@ -29,6 +30,8 @@ static std::string g_askQuestion    = "";
 static Uint32 g_timerStart = 0;
 
 static Sprite* g_currentSprite = nullptr;
+static SDL_Renderer* g_renderer = nullptr;
+static Stage*   g_stage         = nullptr;
 
 static float eval_embedded_numeric(Block* b);
 static bool  eval_embedded_boolean(Block* b);
@@ -93,6 +96,14 @@ static float eval_embedded_numeric(Block* b) {
     }
     if (txt == "answer") {
         try { return std::stof(g_answer); } catch (...) { return 0.0f; }
+    }
+    if (txt.find("distance to mouse") != std::string::npos) {
+        if (!g_currentSprite) return 0.0f;
+        int mx2, my2; SDL_GetMouseState(&mx2, &my2);
+        float scx = STAGE_X + g_currentSprite->x + g_currentSprite->w * g_currentSprite->scale / 2.0f;
+        float scy = STAGE_Y + g_currentSprite->y + g_currentSprite->h * g_currentSprite->scale / 2.0f;
+        float dx2 = (float)(mx2 - scx), dy2 = (float)(my2 - scy);
+        return std::sqrt(dx2*dx2 + dy2*dy2);
     }
     if (txt.find("() < ()") != std::string::npos) return (a < c) ? 1.0f : 0.0f;
     if (txt.find("() > ()") != std::string::npos) return (a > c) ? 1.0f : 0.0f;
@@ -442,7 +453,67 @@ struct ScriptRunner {
                         sprite->texture = sprite->costumes[idx].texture;
                 }
             }
+            else if (txt.find("switch backdrop to") != std::string::npos) {
+                int idx = (int)get_input_val(b, 0, 1);
+                if (g_stage) {
+                    SDL_Color bgColors[] = {
+                        {255,255,255,255},
+                        {173,216,230,255},
+                        {255,228,196,255},
+                        {144,238,144,255}
+                    };
+                    int ci = ((idx-1) % 4 + 4) % 4;
+                    g_stage->color = bgColors[ci];
+                }
+            }
+            else if (txt.find("next backdrop") != std::string::npos) {
+                if (g_stage) {
+                    static int bgIdx = 0;
+                    bgIdx = (bgIdx + 1) % 4;
+                    SDL_Color bgColors[] = {
+                        {255,255,255,255},{173,216,230,255},
+                        {255,228,196,255},{144,238,144,255}
+                    };
+                    g_stage->color = bgColors[bgIdx];
+                }
+            }
         }
+
+        else if (b->type == BLOCK_EXTENSION) {
+            if (txt.find("pen down") != std::string::npos) {
+                sprite->penDown  = true;
+                sprite->lastPenX = sprite->x;
+                sprite->lastPenY = sprite->y;
+            }
+            else if (txt.find("pen up") != std::string::npos) {
+                sprite->penDown  = false;
+                sprite->lastPenX = -9999;
+                sprite->lastPenY = -9999;
+            }
+            else if (txt.find("erase all") != std::string::npos) {
+                if (g_renderer) pen_trail_clear(g_renderer);
+            }
+            else if (txt.find("stamp") != std::string::npos) {
+                if (g_renderer) pen_stamp(g_renderer, sprite);
+            }
+            else if (txt.find("set pen color") != std::string::npos) {
+                int idx = (int)get_input_val(b, 0, 0);
+                SDL_Color colors[] = {
+                    {0,0,0,255},{220,50,50,255},{50,180,50,255},
+                    {50,50,220,255},{230,170,30,255},{150,60,200,255}
+                };
+                sprite->penColor = colors[((idx % 6) + 6) % 6];
+            }
+            else if (txt.find("change pen size by") != std::string::npos) {
+                sprite->penSize += (int)get_input_val(b, 0, 1);
+                if (sprite->penSize < 1) sprite->penSize = 1;
+            }
+            else if (txt.find("set pen size to") != std::string::npos) {
+                sprite->penSize = (int)get_input_val(b, 0, 2);
+                if (sprite->penSize < 1) sprite->penSize = 1;
+            }
+        }
+
 
         else if (b->type == BLOCK_SOUND) {
             if (g_soundsPanel) {

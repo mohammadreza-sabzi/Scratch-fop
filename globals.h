@@ -1,10 +1,5 @@
-//
-// Created by Domim on 2/18/2026.
-//
 
-//
-// Created by Domim on 2/18/2026.
-//
+
 
 #ifndef SCRATCH_FOP_GLOBALS_H
 #define SCRATCH_FOP_GLOBALS_H
@@ -24,10 +19,9 @@ const int STAGE_HEIGHT  = 360;
 
 const int HEADER_H      = 50;
 const int TAB_H         = 36;
-const int STAGE_Y       = HEADER_H + TAB_H;   // = 86
+const int STAGE_Y       = HEADER_H + TAB_H;
 
-// ── فاصله بلاک‌ها از بالای لیست ─────────────────────────────────────────────
-const int BLOCK_LIST_TOP_OFFSET = 8;  // فاصله اضافه از بالا
+const int BLOCK_LIST_TOP_OFFSET = 8;
 
 const int STAGE_X       = SCREEN_WIDTH - STAGE_WIDTH;
 const int WORKSPACE_X   = PALETTE_WIDTH;
@@ -64,7 +58,6 @@ const int TAB_SND_W     = 100;
 const int ICON_BTN_SIZE = 32;
 const int ICON_BTN_Y    = (HEADER_H - ICON_BTN_SIZE) / 2;
 
-// Colors
 const SDL_Color COLOR_MOTION     = {74,  144, 226, 255};
 const SDL_Color COLOR_LOOKS      = {155, 89,  182, 255};
 const SDL_Color COLOR_SOUND      = {207, 74,  217, 255};
@@ -74,6 +67,7 @@ const SDL_Color COLOR_SENSING    = {92,  177, 214, 255};
 const SDL_Color COLOR_OPERATORS  = {89,  192, 89,  255};
 const SDL_Color COLOR_VARIABLES  = {242, 100, 47,  255};
 const SDL_Color COLOR_MYBLOCKS   = {194, 68,  68,  255};
+const SDL_Color COLOR_EXTENSION  = {76,  151, 76,  255};
 
 const SDL_Color COLOR_BG_CATBAR    = {255, 255, 255, 255};
 const SDL_Color COLOR_BG_BLOCKLIST = {250, 250, 250, 255};

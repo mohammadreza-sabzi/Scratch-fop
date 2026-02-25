@@ -10,12 +10,13 @@ using namespace std;
 
 enum BlockType {
     BLOCK_EVENT, BLOCK_MOTION, BLOCK_LOOKS, BLOCK_CONTROL,
-    BLOCK_SOUND, BLOCK_SENSING, BLOCK_OPERATORS, BLOCK_VARIABLES, BLOCK_MYBLOCKS
+    BLOCK_SOUND, BLOCK_SENSING, BLOCK_OPERATORS, BLOCK_VARIABLES, BLOCK_MYBLOCKS,
+    BLOCK_EXTENSION
 };
 
 enum CategoryType {
     CAT_MOTION, CAT_LOOKS, CAT_SOUND, CAT_EVENTS, CAT_CONTROL,
-    CAT_SENSING, CAT_OPERATORS, CAT_VARIABLES, CAT_MYBLOCKS
+    CAT_SENSING, CAT_OPERATORS, CAT_VARIABLES, CAT_MYBLOCKS, CAT_EXTENSION
 };
 
 struct Block;
@@ -54,6 +55,8 @@ struct Block {
 struct Stage {
     int x, y, w, h;
     SDL_Color color;
+    SDL_Texture* bgTexture = nullptr;
+    std::string  bgName    = "";
 };
 
 struct Costume {
@@ -74,6 +77,12 @@ struct Sprite {
     int   currentCostume = 0;
     std::vector<Costume> costumes;
     std::string name = "Sprite1";
+
+    bool      penDown   = false;
+    SDL_Color penColor  = {0, 0, 0, 255};
+    int       penSize   = 2;
+    float     lastPenX  = -9999;
+    float     lastPenY  = -9999;
 };
 
 struct Workspace { int x, y, w, h; };

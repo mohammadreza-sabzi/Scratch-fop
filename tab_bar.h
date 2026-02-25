@@ -1,5 +1,7 @@
 
 
+
+
 #pragma once
 #ifndef TAB_BAR_H
 #define TAB_BAR_H
@@ -154,6 +156,7 @@ inline bool tab_bar_click(int mx, int my, ActiveTab& active)
 
 
 inline std::string escape_str(const std::string& s) {
+
     std::string out;
     for (char c : s) {
         if (c == '|')  out += "\\pipe";
@@ -225,6 +228,7 @@ inline bool load_project(const std::string& path,
     std::ifstream f(path);
     if (!f.is_open()) return false;
 
+
     for (auto* b : wsBlocks) delete b;
     wsBlocks.clear();
 
@@ -272,6 +276,7 @@ inline bool load_project(const std::string& path,
             b->dragOffsetY  = 0;
             b->next         = nullptr;
             b->prev         = nullptr;
+
 
             b->inputs.clear();
             int idx = 0;
