@@ -18,19 +18,17 @@ enum CategoryType {
     CAT_SENSING, CAT_OPERATORS, CAT_VARIABLES, CAT_MYBLOCKS
 };
 
-struct Block; // forward declaration
+struct Block;
 
-// نوع slot: numeric () یا boolean <>
 enum SlotType { SLOT_NUMERIC, SLOT_BOOLEAN };
 
-// ورودی قابل ویرایش داخل بلوک
 struct BlockInput {
     string value = "0";
     bool editing = false;
     SDL_Rect rect = {0, 0, 0, 0};
     int index = 0;
-    SlotType slotType = SLOT_NUMERIC;   // نوع slot
-    Block* embeddedBlock = nullptr;      // بلاک اپراتور جاسازی‌شده
+    SlotType slotType = SLOT_NUMERIC;
+    Block* embeddedBlock = nullptr;
 };
 
 struct Block {
@@ -40,16 +38,14 @@ struct Block {
     int x, y, w, h;
     bool isDragging;
     int dragOffsetX, dragOffsetY;
-    Block* next;      // بلاک بعدی در زنجیر اصلی
-    Block* prev;      // بلاک قبلی در زنجیر اصلی
+    Block* next;
+    Block* prev;
     std::vector<BlockInput> inputs;
 
-    // ── C-shaped block support ───────────────────────────────────────────────
-    bool   isCShaped    = false;   // آیا این بلاک C-شکل است؟
-    Block* innerFirst   = nullptr; // اولین بلاک داخل C
-    Block* innerLast    = nullptr; // آخرین بلاک داخل C  (برای snap)
-    int    innerH       = 36;      // ارتفاع فضای داخلی C (حداقل 36)
-    // برای بلاک if/else دو بخش داریم
+    bool   isCShaped    = false;
+    Block* innerFirst   = nullptr;
+    Block* innerLast    = nullptr;
+    int    innerH       = 36;
     Block* elseFirst    = nullptr;
     int    elseH        = 36;
     bool   hasElse      = false;
@@ -77,7 +73,7 @@ struct Sprite {
     int   sayTimer = 0;
     int   currentCostume = 0;
     std::vector<Costume> costumes;
-    std::string name = "Sprite1";   // نام کاراکتر
+    std::string name = "Sprite1";
 };
 
 struct Workspace { int x, y, w, h; };
@@ -132,7 +128,8 @@ struct SoundClip {
     float       durationSecs = 0.0f;
     int         channel     = -1;
     bool        isPlaying   = false;
-    float       volume      = 100.0f; // 0-100
+    float       volume      = 100.0f;
+    float       pitch       = 1.0f;
 };
 
 struct SoundsPanel {
@@ -142,7 +139,6 @@ struct SoundsPanel {
     int  selectedIndex = -1;
     std::vector<SoundClip> sounds;
 
-    // upload dialog state
     bool        uploadDialogOpen = false;
     std::string uploadPathInput;
     bool        uploadEditing    = false;

@@ -46,13 +46,33 @@ static bool is_operator_block(Block* b) {
 
 // آیا بلاک می‌تواند در slot عددی قرار گیرد؟
 static bool can_embed_in_numeric(Block* b) {
-    if (!is_operator_block(b)) return false;
-    return !is_boolean_operator(b->text);
+    // اپراتورهای ریاضی (غیر بولین)
+    if (b->type == BLOCK_OPERATORS) return !is_boolean_operator(b->text);
+    // بلاک‌های sensing که مقدار عددی برمی‌گردانند
+    if (b->type == BLOCK_SENSING) {
+        const std::string& t = b->text;
+        return t == "mouse x" || t == "mouse y" || t == "timer" || t == "answer";
+    }
+    return false;
 }
 
 // آیا بلاک می‌تواند در slot بولین قرار گیرد؟
 static bool can_embed_in_boolean(Block* b) {
-    return is_operator_block(b) && is_boolean_operator(b->text);
+    // اپراتورهای بولین
+    if (b->type == BLOCK_OPERATORS) return is_boolean_operator(b->text);
+    // بلاک‌های sensing که مقدار بولین برمی‌گردانند
+    if (b->type == BLOCK_SENSING) {
+        const std::string& t = b->text;
+        return t.find("touching") != std::string::npos
+            || t.find("pressed?") != std::string::npos
+            || t.find("down?") != std::string::npos;
+    }
+    return false;
+}
+
+// آیا بلاک می‌تواند embedded شود (در هر نوع slot)؟
+static bool is_embeddable(Block* b) {
+    return can_embed_in_numeric(b) || can_embed_in_boolean(b);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -82,7 +102,7 @@ static BlockInput* find_slot_for_drop(Block* target, Block* dragged, int mx, int
 // تلاش برای جاسازی بلاک اپراتور در یک slot
 // برمی‌گرداند true اگر موفق بود
 static bool try_embed_operator(Block* dragged, std::vector<Block*>& blocks, int mx, int my) {
-    if (!is_operator_block(dragged)) return false;
+    if (!is_embeddable(dragged)) return false;
 
     // تابع کمکی برای آپدیت rects و جستجو در یک بلاک
     auto checkAndEmbed = [&](Block* target) -> bool {
@@ -448,7 +468,7 @@ void handle_mouse_up(Block** draggedBlock, std::vector<Block*>& blocks,
     }
 
     // ── اول تلاش برای جاسازی در slot (با موقعیت ماوس) ──
-    if (is_operator_block(b)) {
+    if (is_embeddable(b)) {
         if (try_embed_operator(b, blocks, mx, my)) {
             // بلاک جاسازی شد — از workspace حذفش کن (الان embedded است)
             blocks.erase(std::remove(blocks.begin(), blocks.end(), b), blocks.end());

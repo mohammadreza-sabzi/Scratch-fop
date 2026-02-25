@@ -10,9 +10,8 @@
 #include <algorithm>
 #include "structs.h"
 #include "globals.h"
-#include "utils.h"   // برای block_total_height, c_inner_y, etc.
+#include "utils.h"
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_text(SDL_Renderer* r, TTF_Font* font, const std::string& text,
                int x, int y, SDL_Color color = {255,255,255,255})
 {
@@ -37,7 +36,6 @@ void draw_text_centered(SDL_Renderer* r, TTF_Font* font, const std::string& text
     draw_text(r, font, text, rect.x + (rect.w - tw)/2, rect.y + (rect.h - th)/2, color);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_filled_circle(SDL_Renderer* r, int cx, int cy, int radius, SDL_Color col) {
     SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
     for (int dy = -radius; dy <= radius; dy++) {
@@ -54,7 +52,6 @@ void draw_circle_outline(SDL_Renderer* r, int cx, int cy, int radius, SDL_Color 
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 SDL_Color get_block_color(BlockType type) {
     switch (type) {
         case BLOCK_MOTION:    return COLOR_MOTION;
@@ -82,19 +79,14 @@ SDL_Color lighten(SDL_Color c, int amt = 50) {
             (Uint8)std::min(255,(int)c.b+amt),255};
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// forward declarations for embedded block rendering
 static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool asBoolean);
 
-// ──────────────────────────────────────────────────────────────────────────────
-// رندر داخل بلاک (متن + input fieldها) — مشترک بین normal و C-block header
 static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
                                 bool isGhost = false)
 {
     const std::string& txt = block->text;
     SDL_Color tCol = isGhost ? SDL_Color{255,255,255,140} : SDL_Color{255,255,255,255};
 
-    // اگر هیچ input ندارد، فقط متن رندر کن
     if (block->inputs.empty()) {
         if (font) draw_text(r, font, txt, block->x+10, block->y+(block->h-14)/2, tCol);
         return;
@@ -124,7 +116,6 @@ static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
                 BlockInput& inp = block->inputs[inputIdx];
 
                 if (isBoolInput) {
-                    // Slot بولین: شکل hexagonal / diamond
                     int slotW = inp.rect.w > 0 ? inp.rect.w : 40;
                     int slotH = 20;
                     int sx = cx, sy = block->y + (block->h - slotH) / 2;
@@ -137,17 +128,14 @@ static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
                         inp.embeddedBlock->w = slotW - 4;
                         draw_embedded_block(r, font, inp.embeddedBlock, true);
                     } else {
-                        // رندر slot خالی بولین با پس‌زمینه تیره‌تر
                         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
                         SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(isGhost ? 40 : 80));
-                        // پر کردن hexagonal با خطوط افقی
                         for (int dy = 0; dy < slotH; dy++) {
                             float t = (float)dy / (slotH > 1 ? slotH-1 : 1);
                             float edge = (t < 0.5f) ? t*2*6 : (1.0f-t)*2*6;
                             SDL_RenderDrawLine(r, sx+(int)edge, sy+dy, sx+slotW-(int)edge, sy+dy);
                         }
                         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
-                        // border hexagonal
                         SDL_SetRenderDrawColor(r, 255, 255, 255, (Uint8)(isGhost ? 100 : 180));
                         int pts[][2] = {
                             {sx+6, sy}, {sx+slotW-6, sy},
@@ -161,7 +149,6 @@ static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
                     }
                     cx += slotW + 4;
                 } else {
-                    // Slot عددی
                     int valW = inp.rect.w > 0 ? inp.rect.w :
                                std::max(30, (int)inp.value.size() * 8 + 8);
                     int slotH = 18;
@@ -201,8 +188,6 @@ static void draw_block_content(SDL_Renderer* r, TTF_Font* font, Block* block,
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// رندر یک بلاک اپراتور که داخل slot جاسازی شده
 static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, bool asBoolean) {
     if (!block) return;
 
@@ -211,10 +196,8 @@ static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, b
     int x = block->x, y = block->y, w = block->w, h = block->h;
 
     if (asBoolean) {
-        // شکل hexagonal (شش‌ضلعی) برای boolean operator
         SDL_SetRenderDrawColor(r, col.r, col.g, col.b, 255);
         int indent = h/2;
-        // رسم چندضلعی ساده با خطوط افقی
         for (int dy = 0; dy < h; dy++) {
             float t = (float)dy / (h > 1 ? h-1 : 1);
             float edge = (t < 0.5f) ? t * 2 * indent : (1.0f - t) * 2 * indent;
@@ -222,7 +205,6 @@ static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, b
             int rx = x + w - (int)edge;
             SDL_RenderDrawLine(r, lx, y + dy, rx, y + dy);
         }
-        // border
         SDL_SetRenderDrawColor(r, dark.r, dark.g, dark.b, 255);
         int pts[][2] = {
             {x+indent, y}, {x+w-indent, y},
@@ -234,29 +216,23 @@ static void draw_embedded_block(SDL_Renderer* r, TTF_Font* font, Block* block, b
             SDL_RenderDrawLine(r, pts[p][0], pts[p][1], nx, ny);
         }
     } else {
-        // شکل oval/pill برای numeric operator
         SDL_SetRenderDrawColor(r, col.r, col.g, col.b, 255);
         int r2 = h / 2;
-        // رسم با خطوط افقی (pill shape)
         for (int dy = 0; dy < h; dy++) {
             float t = (float)(dy - r2) / r2;
             int cap = (int)(r2 * std::sqrt(1.0f - std::min(1.0f, t*t)));
             SDL_RenderDrawLine(r, x + r2 - cap, y + dy, x + w - r2 + cap, y + dy);
         }
-        // border
         SDL_SetRenderDrawColor(r, dark.r, dark.g, dark.b, 255);
         SDL_Rect border = {x, y, w, h};
         SDL_RenderDrawRect(r, &border);
     }
 
-    // متن + inputs داخل embedded block
     if (font) {
         draw_block_content(r, font, block, false);
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// رندر اتصال پازل (notch) بالا/پایین
 static void draw_notch_top(SDL_Renderer* r, int x, int y, SDL_Color col) {
     SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
     for (int i = 0; i < 4; i++)
@@ -268,8 +244,6 @@ static void draw_notch_bottom(SDL_Renderer* r, int x, int y, int bh, SDL_Color c
         SDL_RenderDrawLine(r, x+10+i, y+bh+i, x+30-i, y+bh+i);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// رندر یک بلاک معمولی (غیر C-شکل)
 static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
                                Block* block, bool isGhost = false)
 {
@@ -280,15 +254,12 @@ static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
 
     int x = block->x, y = block->y, w = block->w, h = block->h;
 
-    // بلاک‌های اپراتور شکل خاص دارند
     if (block->type == BLOCK_OPERATORS) {
         bool isBool = is_boolean_operator(block->text);
 
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        // سایه
         SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 60 : 180);
         if (isBool) {
-            // شکل hexagonal
             int pts[][2] = {
                 {x+h/2+2, y+3}, {x+w-h/2+2, y+3},
                 {x+w+2, y+h/2+3}, {x+w-h/2+2, y+h+3},
@@ -308,7 +279,6 @@ static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
         }
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 
-        // بدنه اصلی
         SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
         if (isBool) {
             int indent = h/2;
@@ -317,7 +287,6 @@ static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
                 float edge = (t < 0.5f) ? t * 2 * indent : (1.0f-t) * 2 * indent;
                 SDL_RenderDrawLine(r, x+(int)edge, y+dy2, x+w-(int)edge, y+dy2);
             }
-            // border hexagonal
             SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 220);
             int pts2[][2] = {
                 {x+indent, y}, {x+w-indent, y},
@@ -329,48 +298,39 @@ static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
                 SDL_RenderDrawLine(r, pts2[p][0], pts2[p][1], nx, ny);
             }
         } else {
-            // oval/pill
             int r2 = h/2;
             for (int dy2 = 0; dy2 < h; dy2++) {
                 float t = (float)(dy2 - r2) / (r2 > 0 ? r2 : 1);
                 int cap = (int)(r2 * std::sqrt(1.0f - std::min(1.0f, t*t)));
                 SDL_RenderDrawLine(r, x+r2-cap, y+dy2, x+w-r2+cap, y+dy2);
             }
-            // border oval
             SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 220);
             SDL_Rect border = {x, y, w, h};
             SDL_RenderDrawRect(r, &border);
         }
 
-        // highlight
         SDL_SetRenderDrawColor(r, hl.r, hl.g, hl.b, isGhost ? 60 : 180);
         SDL_RenderDrawLine(r, x+4, y+1, x+w-4, y+1);
 
-        // متن + inputها
         draw_block_content(r, font, block, isGhost);
 
         if (isGhost) SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
         return;
     }
 
-    // سایه
     SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 200);
     SDL_Rect shadowR = {x+2, y+3, w, h};
     SDL_RenderFillRect(r, &shadowR);
 
-    // بدنه
     SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
     SDL_Rect mainR = {x, y, w, h};
     SDL_RenderFillRect(r, &mainR);
 
-    // notch بالا (برای غیر event)
     if (block->type != BLOCK_EVENT)
         draw_notch_top(r, x, y, col);
 
-    // notch پایین
     draw_notch_bottom(r, x, y, h, col);
 
-    // hat برای event
     if (block->type == BLOCK_EVENT) {
         SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
         for (int i = 0; i < 14; i++) {
@@ -379,22 +339,17 @@ static void draw_normal_block(SDL_Renderer* r, TTF_Font* font,
         }
     }
 
-    // highlight بالا
     SDL_SetRenderDrawColor(r, hl.r, hl.g, hl.b, isGhost ? 80 : 255);
     SDL_RenderDrawLine(r, x, y, x+w, y);
 
-    // border
     SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 200);
     SDL_RenderDrawRect(r, &mainR);
 
-    // متن + inputها
     draw_block_content(r, font, block, isGhost);
 
     if (isGhost) SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// رندر بلاک C-شکل (repeat, forever, if, if-else)
 static void draw_c_block(SDL_Renderer* r, TTF_Font* font,
                           Block* block, bool isGhost = false)
 {
@@ -404,16 +359,14 @@ static void draw_c_block(SDL_Renderer* r, TTF_Font* font,
     if (isGhost) { SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND); col.a = 140; }
 
     int x = block->x, y = block->y, w = block->w;
-    int headerH = block->h;        // ارتفاع هدر (36)
-    int indent   = 16;             // عمق indent داخل C
-    int capH     = 8;              // ارتفاع نوار پایین C
+    int headerH = block->h;
+    int indent   = 16;
+    int capH     = 8;
 
-    // ─ محاسبه ارتفاع‌های بخش‌ها ─
     int innerH = block->innerH;
     int elseBarH = block->hasElse ? 20 : 0;
     int elseH    = block->hasElse ? block->elseH : 0;
 
-    // ─ رندر هدر ─────────────────────────────────────────────────────────────
     SDL_SetRenderDrawColor(r, shadow.r, shadow.g, shadow.b, isGhost ? 80 : 200);
     SDL_Rect headerShadow = {x+2, y+3, w, headerH};
     SDL_RenderFillRect(r, &headerShadow);
@@ -422,29 +375,23 @@ static void draw_c_block(SDL_Renderer* r, TTF_Font* font,
     SDL_Rect headerR = {x, y, w, headerH};
     SDL_RenderFillRect(r, &headerR);
 
-    // notch بالای هدر
     draw_notch_top(r, x, y, col);
 
-    // ─ ستون چپ داخل C (indent bar) ──────────────────────────────────────────
     int innerY = y + headerH;
     int totalInnerSectionH = innerH + capH;
     if (block->hasElse) totalInnerSectionH += elseBarH + elseH + capH;
 
     SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
-    // ستون چپ
     SDL_Rect leftBar = {x, innerY, indent, totalInnerSectionH};
     SDL_RenderFillRect(r, &leftBar);
 
-    // ─ کف اول (زیر inner بخش) ────────────────────────────────────────────────
     int cap1Y = innerY + innerH;
     SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
     SDL_Rect cap1 = {x, cap1Y, w, capH};
     SDL_RenderFillRect(r, &cap1);
-    // notch ورودی داخل C (روی کف اول)
     draw_notch_top(r, x+indent, cap1Y, col);
 
     if (block->hasElse) {
-        // ─ نوار "else" ───────────────────────────────────────────────────────
         int elseBarY = cap1Y + capH;
         SDL_SetRenderDrawColor(r, darken(col, 20).r, darken(col, 20).g,
                                darken(col, 20).b, col.a);
@@ -455,43 +402,34 @@ static void draw_c_block(SDL_Renderer* r, TTF_Font* font,
                       x + w/2 - 12, elseBarY + (elseBarH-14)/2,
                       {255,255,255,255});
 
-        // ستون چپ بخش else
         int elseSectionY = elseBarY + elseBarH;
         SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
         SDL_Rect leftBar2 = {x, elseSectionY, indent, elseH + capH};
         SDL_RenderFillRect(r, &leftBar2);
 
-        // کف دوم (زیر else)
         int cap2Y = elseSectionY + elseH;
         SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
         SDL_Rect cap2 = {x, cap2Y, w, capH};
         SDL_RenderFillRect(r, &cap2);
         draw_notch_top(r, x+indent, cap2Y, col);
 
-        // notch پایینی (بعد از کل بلاک)
         draw_notch_bottom(r, x, cap2Y, capH, col);
     } else {
-        // notch پایینی
         draw_notch_bottom(r, x, cap1Y, capH, col);
     }
 
-    // ─ highlight خط بالا هدر ─────────────────────────────────────────────────
     SDL_SetRenderDrawColor(r, hl.r, hl.g, hl.b, isGhost ? 80 : 200);
     SDL_RenderDrawLine(r, x, y, x+w, y);
 
-    // ─ متن هدر + inputها ─────────────────────────────────────────────────────
     draw_block_content(r, font, block, isGhost);
 
     if (isGhost) SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// تابع اصلی draw_block
 void draw_block(SDL_Renderer* r, TTF_Font* font,
                 Block* block, bool isGhost = false)
 {
     if (!block) return;
-    // auto-resize width بر اساس inputها
     block->w = std::max(BLOCK_W, compute_block_width(block));
     update_block_input_rects(block);
 
@@ -501,7 +439,6 @@ void draw_block(SDL_Renderer* r, TTF_Font* font,
         draw_normal_block(r, font, block, isGhost);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_rounded_rect(SDL_Renderer* r, SDL_Rect rc, int radius, SDL_Color col) {
     SDL_SetRenderDrawColor(r, col.r, col.g, col.b, col.a);
     SDL_Rect h = {rc.x+radius, rc.y, rc.w-2*radius, rc.h};
@@ -517,7 +454,6 @@ void draw_rounded_rect(SDL_Renderer* r, SDL_Rect rc, int radius, SDL_Color col) 
         }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_category_bar(SDL_Renderer* r, TTF_Font* font, Palette& palette) {
     SDL_SetRenderDrawColor(r, COLOR_BG_CATBAR.r, COLOR_BG_CATBAR.g, COLOR_BG_CATBAR.b, 255);
     SDL_Rect barRect = {palette.catBarX, palette.catBarY, palette.catBarW, palette.catBarH};
@@ -558,7 +494,6 @@ void draw_category_bar(SDL_Renderer* r, TTF_Font* font, Palette& palette) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
                              const Palette& palette,
                              const std::string& catName,
@@ -604,7 +539,6 @@ void draw_block_list_header(SDL_Renderer* r, TTF_Font* fontBig,
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_stage(SDL_Renderer* r, Stage* stage) {
     if (!stage) return;
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
@@ -618,7 +552,6 @@ void draw_stage(SDL_Renderer* r, Stage* stage) {
     SDL_RenderDrawRect(r, &rc);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_sprite(SDL_Renderer* r, Sprite* sprite, Stage* stage, TTF_Font* font) {
     if (!sprite || !sprite->visible) return;
 
@@ -668,8 +601,6 @@ void draw_sprite(SDL_Renderer* r, Sprite* sprite, Stage* stage, TTF_Font* font) 
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// رندر کادر ask/answer روی stage
 void draw_ask_input(SDL_Renderer* r, TTF_Font* font, Stage* stage,
                     const std::string& question, const std::string& currentInput)
 {
@@ -688,14 +619,12 @@ void draw_ask_input(SDL_Renderer* r, TTF_Font* font, Stage* stage,
     std::string display = currentInput + "|";
     draw_text(r, font, display, bx+8, by+(bh-14)/2, COLOR_TEXT_DARK);
 
-    // دکمه تأیید
     SDL_Rect okBtn = {bx+bw-50, by+4, 44, 28};
     SDL_SetRenderDrawColor(r, 60,140,200,255);
     SDL_RenderFillRect(r, &okBtn);
     draw_text_centered(r, font, "OK", okBtn, {255,255,255,255});
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_workspace_bg(SDL_Renderer* r, Workspace& ws) {
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_Rect rc = {ws.x, ws.y, ws.w, ws.h};
@@ -708,7 +637,6 @@ void draw_workspace_bg(SDL_Renderer* r, Workspace& ws) {
     SDL_RenderDrawRect(r, &rc);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_play_stop_buttons(SDL_Renderer* r, TTF_Font* font,
                              SDL_Rect& playBtn, SDL_Rect& stopBtn,
                              SDL_Texture* playTex, SDL_Texture* stopTex,
@@ -731,7 +659,6 @@ void draw_play_stop_buttons(SDL_Renderer* r, TTF_Font* font,
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_costume_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
                         CostumePanel& panel, Sprite* sprite)
 {
@@ -784,11 +711,32 @@ void draw_costume_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
         }
     }
     SDL_RenderSetClipRect(r, nullptr);
+
+
+    {
+        int btnY = panel.y + panel.h - 38;
+        SDL_Rect uploadBtn = {panel.x + 4, btnY, (panel.w - 12) / 2, 30};
+        SDL_Rect deleteBtn = {panel.x + 4 + (panel.w - 12) / 2 + 4, btnY,
+                              (panel.w - 12) / 2, 30};
+
+        SDL_SetRenderDrawColor(r, 80, 160, 80, 255);
+        SDL_RenderFillRect(r, &uploadBtn);
+        SDL_SetRenderDrawColor(r, 50, 110, 50, 255);
+        SDL_RenderDrawRect(r, &uploadBtn);
+        if (font) draw_text_centered(r, font, "Upload", uploadBtn, COLOR_TEXT_WHITE);
+
+        bool hasSelected = (sprite && sprite->currentCostume >= 0 &&
+                            sprite->currentCostume < (int)sprite->costumes.size());
+        SDL_SetRenderDrawColor(r, hasSelected ? 200 : 160,
+                                  hasSelected ? 60  : 60,
+                                  hasSelected ? 60  : 60, 255);
+        SDL_RenderFillRect(r, &deleteBtn);
+        SDL_SetRenderDrawColor(r, 140, 40, 40, 255);
+        SDL_RenderDrawRect(r, &deleteBtn);
+        if (font) draw_text_centered(r, font, "Delete", deleteBtn, COLOR_TEXT_WHITE);
+    }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// activeField: -1 = none, 0=x, 1=y, 2=dir, 3=size
-// editText: متن در حال ویرایش
 void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
                              Sprite* sprite, int activeField = -1,
                              const std::string& editText = "")
@@ -818,7 +766,6 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     float scrX = sprite->x - STAGE_WIDTH/2.0f + sprite->w/2.0f;
     float scrY = -(sprite->y - STAGE_HEIGHT/2.0f + sprite->h/2.0f);
 
-    // نمایش نام sprite (فیلد 4 = قابل ویرایش)
     draw_text(r, font, "name:", tx, ty, {120,120,120,255});
     SDL_Rect nameBg = {tx+50, ty-2, pw-60, 18};
     bool nameActive = (activeField == 4);
@@ -834,7 +781,6 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     auto drawRow = [&](const std::string& label, const std::string& val, bool editable) {
         draw_text(r, font, label, tx, ty, {120,120,120,255});
 
-        // زمینه فیلد
         SDL_Rect fieldBg = {tx+50, ty-2, pw-60, 18};
         if (editable) {
             bool isActive = (activeField == fieldIdx);
@@ -843,7 +789,6 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
                 SDL_RenderFillRect(r, &fieldBg);
                 SDL_SetRenderDrawColor(r, 80, 140, 220, 255);
                 SDL_RenderDrawRect(r, &fieldBg);
-                // نمایش متن ویرایش + مکان‌نما
                 std::string display = editText + "|";
                 draw_text(r, font, display, tx+54, ty, COLOR_TEXT_DARK);
             } else {
@@ -867,19 +812,15 @@ void draw_sprite_info_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
     drawRow("costume:", std::to_string(sprite->currentCostume+1), false);
 }
 
-// محاسبه شماره فیلد با توجه به موقعیت کلیک
-// برمی‌گرداند: 0=x,1=y,2=dir,3=size,4=name یا -1
 inline int sprite_info_field_at(int mx, int my) {
     int px = SPRITE_INFO_X, py = SPRITE_INFO_Y;
     int pw = SPRITE_INFO_W;
     int tx = px+10, ty = py+38, lineH = 24;
-    // فیلد name اول است (index=4)
     SDL_Rect nameBg = {tx+50, ty-2, pw-60, 18};
     if (mx >= nameBg.x && mx < nameBg.x+nameBg.w &&
         my >= nameBg.y && my < nameBg.y+nameBg.h)
         return 4;
     ty += lineH;
-    // فیلدهای 0..3: x,y,dir,size
     for (int i = 0; i < 4; i++) {
         SDL_Rect fieldBg = {tx+50, ty-2, pw-60, 18};
         if (mx >= fieldBg.x && mx < fieldBg.x+fieldBg.w &&
@@ -890,7 +831,6 @@ inline int sprite_info_field_at(int mx, int my) {
     return -1;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void draw_variable_monitors(SDL_Renderer* r, TTF_Font* font,
                              VariablesPanel& vp, Stage* stage)
 {
@@ -913,11 +853,9 @@ void draw_variable_monitors(SDL_Renderer* r, TTF_Font* font,
     }
 }
 
-// تابع draw_variables_panel (برای سازگاری با main.cpp)
 void draw_variables_panel(SDL_Renderer* r, TTF_Font* font, TTF_Font* fontBig,
                           VariablesPanel& vp, Workspace& ws)
 {
-    // (در نسخه جدید از draw_variable_monitors استفاده می‌کنیم، این تابع خالی باقی می‌ماند)
     (void)r; (void)font; (void)fontBig; (void)vp; (void)ws;
 }
 

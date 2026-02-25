@@ -1,10 +1,10 @@
-//
-// Created by Domim on 2/21/2026.
-//
 
-//
-// Created by Domim on 2/21/2026.
-//
+
+
+
+
+
+
 
 #ifndef COSTUME_EDITOR_H
 #define COSTUME_EDITOR_H
@@ -67,6 +67,7 @@ struct CostumeEditor {
     std::vector<UndoFrame> redoStack;
 
     int       costumeIndex  = -1;
+    float     penBrightness = 1.0f;  
 };
 
 static void ce_push_undo(CostumeEditor& ce);
@@ -86,6 +87,7 @@ inline void ce_init(CostumeEditor& ce) {
     ce.penSize      = 4;
     ce.dragging     = false;
     ce.costumeIndex = -1;
+    ce.penBrightness = 1.0f;
     ce.undoStack.clear();
     ce.redoStack.clear();
 }
@@ -98,7 +100,7 @@ inline void ce_open(CostumeEditor& ce, SDL_Renderer* r, Sprite* sprite, int cost
     ce.undoStack.clear();
     ce.redoStack.clear();
 
-    // destroy old
+    
     if (ce.canvasTex)  { SDL_DestroyTexture(ce.canvasTex); ce.canvasTex = nullptr; }
     if (ce.canvasSurf) { SDL_FreeSurface(ce.canvasSurf); ce.canvasSurf = nullptr; }
 
@@ -107,12 +109,12 @@ inline void ce_open(CostumeEditor& ce, SDL_Renderer* r, Sprite* sprite, int cost
     SDL_FillRect(ce.canvasSurf, nullptr,
         SDL_MapRGBA(ce.canvasSurf->format, 255, 255, 255, 255));
 
-    // اگر کاستوم انتخاب‌شده تکستچر دارد، آن را روی کانواس رسم می‌کنیم
+    
     if (sprite && costumeIdx >= 0 && costumeIdx < (int)sprite->costumes.size()
         && sprite->costumes[costumeIdx].texture) {
         SDL_Texture* srcTex = sprite->costumes[costumeIdx].texture;
 
-        // یک render target موقت به اندازه کانواس می‌سازیم
+        
         SDL_Texture* tmpTarget = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888,
             SDL_TEXTUREACCESS_TARGET, CE_CANVAS_W, CE_CANVAS_H);
         if (tmpTarget) {
@@ -122,7 +124,7 @@ inline void ce_open(CostumeEditor& ce, SDL_Renderer* r, Sprite* sprite, int cost
             SDL_Rect dstRect = {0, 0, CE_CANVAS_W, CE_CANVAS_H};
             SDL_RenderCopy(r, srcTex, nullptr, &dstRect);
 
-            // پیکسل‌های render target را روی canvasSurf کپی می‌کنیم (قبل از reset target)
+            
             SDL_LockSurface(ce.canvasSurf);
             SDL_RenderReadPixels(r, &dstRect, ce.canvasSurf->format->format,
                 ce.canvasSurf->pixels, ce.canvasSurf->pitch);
@@ -162,7 +164,7 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
         SDL_Keymod mod = SDL_GetModState();
         if (e.key.keysym.sym == SDLK_ESCAPE) { ce_close(ce); return true; }
         if ((mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_z) {
-            // undo
+            
             if (!ce.undoStack.empty()) {
                 UndoFrame cur;
                 cur.w = ce.canvasW; cur.h = ce.canvasH;
@@ -238,6 +240,20 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
             }
         }
 
+        
+        {
+            int brY = szY + 50;
+            int sliderX = swX, sliderW = CE_SIDEBAR_W - 16;
+            int sliderH = 14;
+            SDL_Rect sliderRect = {sliderX, brY + 16, sliderW, sliderH};
+            if (mx >= sliderRect.x && mx <= sliderRect.x + sliderRect.w &&
+                my >= sliderRect.y - 6 && my <= sliderRect.y + sliderRect.h + 6) {
+                float t = (float)(mx - sliderRect.x) / sliderRect.w;
+                ce.penBrightness = t * 2.0f; 
+                return true;
+            }
+        }
+
         SDL_Rect clearBtn = {wx + 8, wy + CE_H - 48, CE_SIDEBAR_W - 16, 32};
         if (mx >= clearBtn.x && mx <= clearBtn.x+clearBtn.w &&
             my >= clearBtn.y && my <= clearBtn.y+clearBtn.h) {
@@ -251,7 +267,7 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
         SDL_Rect saveBtn = {wx + CE_SIDEBAR_W + 12 + CE_CANVAS_W - 100, wy + CE_H - 48, 96, 32};
         if (mx >= saveBtn.x && mx <= saveBtn.x+saveBtn.w &&
             my >= saveBtn.y && my <= saveBtn.y+saveBtn.h) {
-            // Apply canvas to sprite costume texture
+            
             if (sprite && ce.costumeIndex >= 0 &&
                 ce.costumeIndex < (int)sprite->costumes.size()) {
                 SDL_Texture* newTex = SDL_CreateTextureFromSurface(r, ce.canvasSurf);
@@ -267,7 +283,7 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
             return true;
         }
 
-        // ── Flip H button ───────────────────────────────────────────────────
+        
         SDL_Rect flipHBtn = {wx + CE_SIDEBAR_W + 12, wy + CE_H - 48, 72, 32};
         if (mx >= flipHBtn.x && mx <= flipHBtn.x+flipHBtn.w &&
             my >= flipHBtn.y && my <= flipHBtn.y+flipHBtn.h) {
@@ -287,7 +303,7 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
             return true;
         }
 
-        // ── Flip V button ───────────────────────────────────────────────────
+        
         SDL_Rect flipVBtn = {wx + CE_SIDEBAR_W + 12 + 76, wy + CE_H - 48, 72, 32};
         if (mx >= flipVBtn.x && mx <= flipVBtn.x+flipVBtn.w &&
             my >= flipVBtn.y && my <= flipVBtn.y+flipVBtn.h) {
@@ -319,7 +335,7 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
                 ce_draw_line_on_surf(ce, cx, cy, cx, cy);
                 ce_apply_to_texture(ce, r);
             } else if (ce.tool == CE_TOOL_FILL) {
-                // read target color
+                
                 SDL_LockSurface(ce.canvasSurf);
                 Uint32* px = (Uint32*)ce.canvasSurf->pixels;
                 int idx = cy * ce.canvasW + cx;
@@ -334,7 +350,7 @@ inline bool ce_handle_event(CostumeEditor& ce, SDL_Event& e, SDL_Renderer* r, Sp
             return true;
         }
 
-        // click anywhere outside the editor = ignore (still consume)
+        
         return true;
     }
 
@@ -482,14 +498,14 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
         }
     }
 
-    // Current color preview
+    
     SDL_Rect curCol = {swX + 4*34 + 4, swY, 20, 64};
     SDL_SetRenderDrawColor(r, ce.drawColor.r, ce.drawColor.g, ce.drawColor.b, 255);
     SDL_RenderFillRect(r, &curCol);
     SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
     SDL_RenderDrawRect(r, &curCol);
 
-    // Pen size
+    
     int szY = swY + 80;
     if (font) draw_text(r, font, "Size:", swX, szY - 14, COLOR_TEXT_DARK);
     for (int i = 0; i < 4; i++) {
@@ -500,7 +516,7 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
         SDL_RenderFillRect(r, &sr);
         SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
         SDL_RenderDrawRect(r, &sr);
-        // draw dot in center proportional to size
+        
         SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
         int dc = sz/2+1;
         for (int dy = -dc; dy <= dc; dy++) {
@@ -511,13 +527,38 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
         }
     }
 
-    // Clear button
+    
+    {
+        int brY = swY + 80 + 50;
+        if (font) draw_text(r, font, "Brightness:", swX, brY, COLOR_TEXT_DARK);
+        int sliderX = swX, sliderW = CE_SIDEBAR_W - 16, sliderH = 14;
+        SDL_Rect trackRect = {sliderX, brY + 16, sliderW, sliderH};
+        
+        for (int px2 = 0; px2 < sliderW; px2++) {
+            float t = (float)px2 / sliderW;
+            Uint8 bright = (Uint8)(t * 255);
+            SDL_SetRenderDrawColor(r, bright, bright, bright, 255);
+            SDL_RenderDrawLine(r, trackRect.x + px2, trackRect.y,
+                                  trackRect.x + px2, trackRect.y + sliderH);
+        }
+        SDL_SetRenderDrawColor(r, 120, 120, 130, 255);
+        SDL_RenderDrawRect(r, &trackRect);
+        
+        int thumbX = trackRect.x + (int)(ce.penBrightness / 2.0f * sliderW);
+        SDL_SetRenderDrawColor(r, 80, 80, 200, 255);
+        SDL_Rect thumb = {thumbX - 5, brY + 12, 10, sliderH + 4};
+        SDL_RenderFillRect(r, &thumb);
+        SDL_SetRenderDrawColor(r, 40, 40, 140, 255);
+        SDL_RenderDrawRect(r, &thumb);
+    }
+
+    
     SDL_Rect clearBtn = {wx + 8, wy + CE_H - 48, CE_SIDEBAR_W - 16, 32};
     SDL_SetRenderDrawColor(r, 200, 80, 80, 255);
     SDL_RenderFillRect(r, &clearBtn);
     if (font) draw_text_centered(r, font, "Clear", clearBtn, COLOR_TEXT_WHITE);
 
-    // ── Canvas area ────────────────────────────────────────────────────────────
+    
     SDL_Rect canvasRect = {
         wx + CE_SIDEBAR_W + 12,
         wy + CE_TOOLBAR_H + 12,
@@ -525,7 +566,7 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
         CE_CANVAS_H
     };
 
-    // checkerboard bg (transparent indicator)
+    
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
     SDL_RenderFillRect(r, &canvasRect);
     SDL_SetRenderDrawColor(r, 170, 170, 170, 255);
@@ -539,23 +580,23 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
     if (ce.canvasTex)
         SDL_RenderCopy(r, ce.canvasTex, nullptr, &canvasRect);
 
-    // Shape preview while dragging
+    
     if (ce.dragging &&
         (ce.tool == CE_TOOL_LINE || ce.tool == CE_TOOL_RECT || ce.tool == CE_TOOL_ELLIPSE)) {
         ce_draw_shape_preview(r, ce, canvasRect);
     }
 
-    // Canvas border
+    
     SDL_SetRenderDrawColor(r, 100, 100, 120, 255);
     SDL_RenderDrawRect(r, &canvasRect);
 
-    // ── Save button ────────────────────────────────────────────────────────────
+    
     SDL_Rect saveBtn = {canvasRect.x + canvasRect.w - 100, wy + CE_H - 48, 96, 32};
     SDL_SetRenderDrawColor(r, COLOR_LOOKS.r, COLOR_LOOKS.g, COLOR_LOOKS.b, 255);
     SDL_RenderFillRect(r, &saveBtn);
     if (font) draw_text_centered(r, font, "Save", saveBtn, COLOR_TEXT_WHITE);
 
-    // ── Flip buttons ───────────────────────────────────────────────────────────
+    
     SDL_Rect flipHBtn = {canvasRect.x, wy + CE_H - 48, 72, 32};
     SDL_Rect flipVBtn = {canvasRect.x + 76, wy + CE_H - 48, 72, 32};
     SDL_SetRenderDrawColor(r, 80, 140, 200, 255);
@@ -566,7 +607,7 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
         draw_text_centered(r, font, "Flip V", flipVBtn, COLOR_TEXT_WHITE);
     }
 
-    // ── Info bar ───────────────────────────────────────────────────────────────
+    
     if (font) {
         std::string info = "Tool: ";
         info += toolNames[ce.tool];
@@ -575,7 +616,7 @@ inline void ce_render(CostumeEditor& ce, SDL_Renderer* r, TTF_Font* font, TTF_Fo
     }
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+
 
 static void ce_push_undo(CostumeEditor& ce) {
     if (!ce.canvasSurf) return;
@@ -592,6 +633,11 @@ static void ce_push_undo(CostumeEditor& ce) {
     ce.redoStack.clear();
 }
 
+static SDL_Color ce_apply_brightness(SDL_Color col, float brightness) {
+    auto clamp = [](float v) -> Uint8 { return (Uint8)std::max(0.0f, std::min(255.0f, v)); };
+    return { clamp(col.r * brightness), clamp(col.g * brightness), clamp(col.b * brightness), col.a };
+}
+
 static void ce_set_pixel(CostumeEditor& ce, int x, int y, SDL_Color col) {
     if (x < 0 || x >= ce.canvasW || y < 0 || y >= ce.canvasH) return;
     Uint32* pixels = (Uint32*)ce.canvasSurf->pixels;
@@ -602,7 +648,7 @@ static void ce_set_pixel(CostumeEditor& ce, int x, int y, SDL_Color col) {
 static void ce_draw_line_on_surf(CostumeEditor& ce, int x0, int y0, int x1, int y1) {
     if (!ce.canvasSurf) return;
     SDL_Color col = (ce.tool == CE_TOOL_ERASER) ?
-        SDL_Color{255,255,255,255} : ce.drawColor;
+        SDL_Color{255,255,255,255} : ce_apply_brightness(ce.drawColor, ce.penBrightness);
 
     SDL_LockSurface(ce.canvasSurf);
     int dx = std::abs(x1-x0), sx = x0<x1?1:-1;
@@ -624,7 +670,8 @@ static void ce_draw_line_on_surf(CostumeEditor& ce, int x0, int y0, int x1, int 
 
 static void ce_fill(CostumeEditor& ce, int x, int y, SDL_Color target, SDL_Color fill) {
     if (!ce.canvasSurf) return;
-    // avoid infinite loop if same color
+    fill = ce_apply_brightness(fill, ce.penBrightness);
+    
     if (target.r==fill.r && target.g==fill.g && target.b==fill.b && target.a==fill.a) return;
 
     Uint32 targetPx = SDL_MapRGBA(ce.canvasSurf->format,
@@ -635,7 +682,7 @@ static void ce_fill(CostumeEditor& ce, int x, int y, SDL_Color target, SDL_Color
     SDL_LockSurface(ce.canvasSurf);
     Uint32* pixels = (Uint32*)ce.canvasSurf->pixels;
 
-    // iterative flood fill with a stack
+    
     std::vector<std::pair<int,int>> stack;
     stack.push_back(std::make_pair(x, y));
     while (!stack.empty()) {
@@ -688,5 +735,5 @@ static void ce_draw_shape_preview(SDL_Renderer* r, CostumeEditor& ce, SDL_Rect c
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }
 
-#endif // COSTUME_EDITOR_H
+#endif 
 

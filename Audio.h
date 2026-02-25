@@ -1,10 +1,10 @@
-//
-// Created by Domim on 2/22/2026.
-//
 
-//
-// Created by Domim on 2/22/2026.
-//
+
+
+
+
+
+
 
 #ifndef SCRATCH_FOP_AUDIO_H
 #define SCRATCH_FOP_AUDIO_H
@@ -71,7 +71,7 @@ inline void audio_play(SoundClip& clip)
     if (clip.isPlaying && clip.channel >= 0)
         Mix_HaltChannel(clip.channel);
 
-    clip.channel   = Mix_PlayChannel(-1, clip.chunk, 0); // -1 = اتوماتیک
+    clip.channel   = Mix_PlayChannel(-1, clip.chunk, 0);
     clip.isPlaying = (clip.channel >= 0);
 
     if (clip.channel < 0)
@@ -90,7 +90,7 @@ inline void audio_update(SoundsPanel& panel)
 {
     for (auto& s : panel.sounds) {
         if (s.isPlaying && s.channel >= 0) {
-            // وقتی SDL_mixer پخش تموم کرد، کانال آزاد می‌شه
+
             if (!Mix_Playing(s.channel)) {
                 s.isPlaying = false;
                 s.channel   = -1;
@@ -110,4 +110,4 @@ inline void audio_free_all(SoundsPanel& panel)
     }
 }
 
-#endif //SCRATCH_FOP_AUDIO_H
+#endif

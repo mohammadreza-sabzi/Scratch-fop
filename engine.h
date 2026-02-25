@@ -17,29 +17,25 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// ─── متغیرهای سراسری ────────────────────────────────────────────────────────
 static std::map<std::string, float> g_vars;
 static float  g_lastOperatorResult  = 0.0f;
 static bool   g_hasOperatorResult   = false;
 static std::string g_operatorResultText = "";
 
-// ask/answer
 static std::string g_answer         = "";
 static bool        g_askPending     = false;
 static std::string g_askQuestion    = "";
 
-// timer
 static Uint32 g_timerStart = 0;
 
-// ─── forward declaration ──────────────────────────────────────────────────────
+static Sprite* g_currentSprite = nullptr;
+
 static float eval_embedded_numeric(Block* b);
 static bool  eval_embedded_boolean(Block* b);
 static std::string float_to_str(float v);
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
 static float get_input_val(Block* b, int idx, float fallback = 0.0f) {
     if (idx < (int)b->inputs.size()) {
-        // اگر بلاک embedded دارد، آن را ارزیابی کن
         if (b->inputs[idx].embeddedBlock) {
             return eval_embedded_numeric(b->inputs[idx].embeddedBlock);
         }
@@ -61,7 +57,6 @@ static bool get_input_bool(Block* b, int idx) {
     return false;
 }
 
-// ارزیابی یک بلاک اپراتور numeric به صورت بازگشتی
 static float eval_embedded_numeric(Block* b) {
     if (!b) return 0.0f;
     const std::string& txt = b->text;
@@ -86,10 +81,19 @@ static float eval_embedded_numeric(Block* b) {
         if (hi < lo) std::swap(lo, hi);
         return (float)(lo + rand() % (hi - lo + 1));
     }
-    // timer reporter
     if (txt == "timer" || txt.find("timer") != std::string::npos)
         return (float)(SDL_GetTicks() - g_timerStart) / 1000.0f;
-    // boolean operators که در numeric context استفاده شده‌اند (1 یا 0)
+    if (txt == "mouse x") {
+        int mx2, my2; SDL_GetMouseState(&mx2, &my2);
+        return (float)(mx2 - (STAGE_X + STAGE_WIDTH / 2));
+    }
+    if (txt == "mouse y") {
+        int mx2, my2; SDL_GetMouseState(&mx2, &my2);
+        return (float)((STAGE_Y + STAGE_HEIGHT / 2) - my2);
+    }
+    if (txt == "answer") {
+        try { return std::stof(g_answer); } catch (...) { return 0.0f; }
+    }
     if (txt.find("() < ()") != std::string::npos) return (a < c) ? 1.0f : 0.0f;
     if (txt.find("() > ()") != std::string::npos) return (a > c) ? 1.0f : 0.0f;
     if (txt.find("() = ()") != std::string::npos) return (a == c) ? 1.0f : 0.0f;
@@ -99,7 +103,6 @@ static float eval_embedded_numeric(Block* b) {
     return 0.0f;
 }
 
-// ارزیابی یک بلاک اپراتور boolean به صورت بازگشتی
 static bool eval_embedded_boolean(Block* b) {
     if (!b) return false;
     const std::string& txt = b->text;
@@ -112,7 +115,56 @@ static bool eval_embedded_boolean(Block* b) {
     if (txt.find("<> and <>") != std::string::npos) return get_input_bool(b,0) && get_input_bool(b,1);
     if (txt.find("<> or <>") != std::string::npos)  return get_input_bool(b,0) || get_input_bool(b,1);
     if (txt.find("not <>") != std::string::npos)    return !get_input_bool(b,0);
-    // numeric در boolean context
+
+    if (txt.find("touching mouse-pointer") != std::string::npos) {
+        if (!g_currentSprite) return false;
+        int mx2, my2; SDL_GetMouseState(&mx2, &my2);
+        float sx = g_currentSprite->x + STAGE_X;
+        float sy = g_currentSprite->y + STAGE_Y;
+        float sw = g_currentSprite->w * g_currentSprite->scale;
+        float sh = g_currentSprite->h * g_currentSprite->scale;
+        return mx2 >= sx && mx2 <= sx + sw && my2 >= sy && my2 <= sy + sh;
+    }
+    if (txt.find("touching edge") != std::string::npos) {
+        if (!g_currentSprite) return false;
+        float maxX = (float)(STAGE_WIDTH  - (int)(g_currentSprite->w * g_currentSprite->scale));
+        float maxY = (float)(STAGE_HEIGHT - (int)(g_currentSprite->h * g_currentSprite->scale));
+        return g_currentSprite->x <= 0 || g_currentSprite->x >= maxX
+            || g_currentSprite->y <= 0 || g_currentSprite->y >= maxY;
+    }
+    if (txt.find("mouse down") != std::string::npos ||
+        (txt.find("down") != std::string::npos && txt.find("mouse") != std::string::npos)) {
+        int mx2, my2;
+        Uint32 mb = SDL_GetMouseState(&mx2, &my2);
+        return (mb & SDL_BUTTON(1)) != 0;
+    }
+    if (txt.find("key") != std::string::npos &&
+        txt.find("pressed") != std::string::npos) {
+        const Uint8* keys = SDL_GetKeyboardState(nullptr);
+        if (txt.find("space")  != std::string::npos) return keys[SDL_SCANCODE_SPACE]  != 0;
+        if (txt.find("right")  != std::string::npos) return keys[SDL_SCANCODE_RIGHT]  != 0;
+        if (txt.find("left")   != std::string::npos) return keys[SDL_SCANCODE_LEFT]   != 0;
+        if (txt.find("up")     != std::string::npos) return keys[SDL_SCANCODE_UP]     != 0;
+        if (txt.find("down")   != std::string::npos) return keys[SDL_SCANCODE_DOWN]   != 0;
+        if (txt.find("enter")  != std::string::npos) return keys[SDL_SCANCODE_RETURN] != 0;
+        if (txt.find("escape") != std::string::npos) return keys[SDL_SCANCODE_ESCAPE] != 0;
+        for (char ch = 'a'; ch <= 'z'; ch++) {
+            std::string letter(1, ch);
+            if (txt.find(letter) != std::string::npos) {
+                SDL_Scancode sc = SDL_GetScancodeFromKey(SDLK_a + (ch - 'a'));
+                return keys[sc] != 0;
+            }
+        }
+        for (char ch = '0'; ch <= '9'; ch++) {
+            std::string digit(1, ch);
+            if (txt.find(digit) != std::string::npos) {
+                SDL_Scancode sc = SDL_GetScancodeFromKey(SDLK_0 + (ch - '0'));
+                return keys[sc] != 0;
+            }
+        }
+        return false;
+    }
+
     return eval_embedded_numeric(b) != 0.0f;
 }
 
@@ -120,7 +172,6 @@ static std::string get_input_str(Block* b, int idx,
                                   const std::string& fallback = "") {
     if (idx < (int)b->inputs.size()) {
         if (b->inputs[idx].embeddedBlock) {
-            // برای embedded block، نتیجه عددی را به string تبدیل کن
             return float_to_str(eval_embedded_numeric(b->inputs[idx].embeddedBlock));
         }
         return b->inputs[idx].value;
@@ -164,18 +215,16 @@ static void clamp_sprite(Sprite* s) {
     if (s->y > maxY) s->y = maxY;
 }
 
-// ─── LoopFrame برای repeat / forever / if ────────────────────────────────────
 struct LoopFrame {
-    Block*  loopBlock;   // خود بلاک C (repeat/forever/if)
-    Block*  current;     // بلاک جاری داخل C
-    int     remaining;   // تعداد تکرار باقی‌مانده (-1 = forever)
-    bool    inElse;      // آیا در شاخه else هستیم؟
+    Block*  loopBlock;
+    Block*  current;
+    int     remaining;
+    bool    inElse;
 };
 
-// ─── ScriptRunner ─────────────────────────────────────────────────────────────
 struct ScriptRunner {
     bool   running   = false;
-    bool   paused    = false;   // توقف موقت
+    bool   paused    = false;
     Block* current   = nullptr;
     Uint32 waitUntil = 0;
     bool   waiting   = false;
@@ -183,7 +232,6 @@ struct ScriptRunner {
     std::vector<LoopFrame> loopStack;
     std::vector<Variable>* vars = nullptr;
 
-    // برای ask/answer: pointer به Sprite جهت نمایش سوال
     Sprite* askSprite = nullptr;
 
     void start(Block* first, std::vector<Variable>* varList = nullptr) {
@@ -204,7 +252,6 @@ struct ScriptRunner {
         g_askPending = false;
     }
 
-    // توقف موقت / ادامه
     void togglePause() {
         if (!running) return;
         paused = !paused;
@@ -221,8 +268,8 @@ struct ScriptRunner {
     void update(Sprite* sprite) {
         if (!running || paused || !sprite) return;
         askSprite = sprite;
+        g_currentSprite = sprite;
 
-        // اگر ask در انتظار جواب است، صبر کن
         if (g_askPending) return;
 
         Uint32 now = SDL_GetTicks();
@@ -234,7 +281,6 @@ struct ScriptRunner {
             }
         }
         if (!current) {
-            // اگر داخل یک حلقه هستیم، برگرد
             if (!loopStack.empty()) {
                 advance_loop(sprite);
                 return;
@@ -246,26 +292,22 @@ struct ScriptRunner {
         syncVarsBack();
     }
 
-    // ─── ارزیابی شرط (برای if / wait until) ──────────────────────────────
     bool eval_condition(Block* b) {
         if (b->inputs.empty()) return false;
-        // اگر slot بولین با بلاک embedded دارد
         if (b->inputs[0].embeddedBlock) {
             return eval_embedded_boolean(b->inputs[0].embeddedBlock);
         }
-        // اگر مقدار متنی دارد
-        float val = 0;
-        try { val = std::stof(b->inputs[0].value); } catch (...) {}
-        return val != 0.0f;
+        const std::string& val = b->inputs[0].value;
+        float fval = 0;
+        try { fval = std::stof(val); } catch (...) {}
+        return fval != 0.0f;
     }
 
-    // ─── اجرای یک بلاک ────────────────────────────────────────────────────
     bool execute_block(Block* b, Sprite* sprite, Uint32 now) {
         const std::string& txt = b->text;
 
         if (b->type == BLOCK_EVENT) return false;
 
-        // ── MOTION ──────────────────────────────────────────────────────────
         if (b->type == BLOCK_MOTION) {
             if (txt.find("move") != std::string::npos &&
                 txt.find("steps") != std::string::npos) {
@@ -299,7 +341,6 @@ struct ScriptRunner {
             else if (txt.find("go to mouse") != std::string::npos) {
                 int mx, my;
                 SDL_GetMouseState(&mx, &my);
-                // تبدیل از مختصات صفحه به stage
                 sprite->x = (float)(mx - STAGE_X) - sprite->w * sprite->scale / 2.0f;
                 sprite->y = (float)(my - STAGE_Y) - sprite->h * sprite->scale / 2.0f;
                 clamp_sprite(sprite);
@@ -355,7 +396,6 @@ struct ScriptRunner {
             }
         }
 
-        // ── LOOKS ───────────────────────────────────────────────────────────
         else if (b->type == BLOCK_LOOKS) {
             if (txt.find("say") != std::string::npos ||
                 txt.find("think") != std::string::npos) {
@@ -395,7 +435,7 @@ struct ScriptRunner {
             }
             else if (txt.find("switch costume to") != std::string::npos) {
                 int idx = (int)get_input_val(b, 0, 0);
-                if (idx >= 1) idx--; // 1-based به 0-based
+                if (idx >= 1) idx--;
                 if (idx >= 0 && idx < (int)sprite->costumes.size()) {
                     sprite->currentCostume = idx;
                     if (sprite->costumes[idx].texture)
@@ -404,7 +444,6 @@ struct ScriptRunner {
             }
         }
 
-        // ── SOUND ───────────────────────────────────────────────────────────
         else if (b->type == BLOCK_SOUND) {
             if (g_soundsPanel) {
                 if (txt.find("play sound") != std::string::npos) {
@@ -415,7 +454,6 @@ struct ScriptRunner {
                             || sc.name.find(sname) != std::string::npos
                             || sname.find(sc.name) != std::string::npos;
                         if (match) {
-                            // ساده: پخش از طریق SDL_mixer اگر chunk دارد
                             if (sc.chunk) {
                                 int ch = Mix_PlayChannel(-1, sc.chunk, 0);
                                 sc.channel   = ch;
@@ -456,7 +494,6 @@ struct ScriptRunner {
             }
         }
 
-        // ── SENSING ─────────────────────────────────────────────────────────
         else if (b->type == BLOCK_SENSING) {
             if (txt.find("ask") != std::string::npos &&
                 txt.find("and wait") != std::string::npos) {
@@ -472,7 +509,6 @@ struct ScriptRunner {
             }
         }
 
-        // ── CONTROL ─────────────────────────────────────────────────────────
         else if (b->type == BLOCK_CONTROL) {
             if (txt.find("wait") != std::string::npos &&
                 txt.find("secs") != std::string::npos &&
@@ -482,11 +518,8 @@ struct ScriptRunner {
                 waiting = true; saySilent = false;
             }
             else if (txt.find("wait until") != std::string::npos) {
-                // هر فریم چک می‌کند
                 if (!eval_condition(b)) {
-                    // هنوز شرط برقرار نشده، همینجا بمان
-                    // (همین بلاک رو دوباره اجرا می‌کند)
-                    return true; // فعلاً جهش نمی‌زنیم ولی advance هم نمی‌کنیم
+                    return true;
                 }
             }
             else if (txt.find("repeat") != std::string::npos &&
@@ -497,7 +530,6 @@ struct ScriptRunner {
                     current = b->innerFirst;
                     return true;
                 }
-                // اگر بلاک‌های داخلی ندارد، برو بعدی
             }
             else if (txt.find("forever") != std::string::npos) {
                 if (b->isCShaped && b->innerFirst) {
@@ -526,7 +558,6 @@ struct ScriptRunner {
                         return true;
                     }
                 }
-                // شرط برقرار نشد یا inner خالی است → ادامه بده
             }
             else if (txt.find("stop all") != std::string::npos &&
                      txt.find("script") == std::string::npos) {
@@ -538,7 +569,6 @@ struct ScriptRunner {
             }
         }
 
-        // ── VARIABLES ───────────────────────────────────────────────────────
         else if (b->type == BLOCK_VARIABLES) {
             if (txt.find("set ") == 0 && txt.find(" to ") != std::string::npos) {
                 size_t toPos = txt.find(" to ");
@@ -571,7 +601,6 @@ struct ScriptRunner {
             }
         }
 
-        // ── OPERATORS ───────────────────────────────────────────────────────
         else if (b->type == BLOCK_OPERATORS) {
             float a = get_input_val(b, 0, 0.0f);
             float c = get_input_val(b, 1, 0.0f);
@@ -703,14 +732,11 @@ struct ScriptRunner {
         return false;
     }
 
-    // ─── پیشروی در زنجیر اصلی یا بازگشت از loop ────────────────────────────
     void advance(Block* b, Sprite* /*sprite*/) {
-        // اگر بلاک جاری، next داخلی دارد
         if (b->next) {
             current = b->next;
             return;
         }
-        // اگر در یک loop frame هستیم
         if (!loopStack.empty()) {
             advance_loop(nullptr);
             return;
@@ -724,7 +750,6 @@ struct ScriptRunner {
 
         LoopFrame& f = loopStack.back();
 
-        // پیدا کردن بلاک بعدی داخل C
         Block* nextInner = f.current ? f.current->next : nullptr;
 
         if (nextInner) {
@@ -733,10 +758,7 @@ struct ScriptRunner {
             return;
         }
 
-        // رسیدیم به آخر آنچه داخل C بود
-        // تکرار یا خروج؟
         if (f.remaining == -1) {
-            // forever → برگرد به اول
             Block* first = f.inElse ? f.loopBlock->elseFirst
                                      : f.loopBlock->innerFirst;
             f.current = first;
@@ -750,7 +772,6 @@ struct ScriptRunner {
             current   = first;
             return;
         }
-        // تمام شد
         Block* afterC = f.loopBlock->next;
         loopStack.pop_back();
         if (afterC) {
@@ -763,7 +784,6 @@ struct ScriptRunner {
     }
 };
 
-// ─── پیدا کردن شروع اسکریپت ─────────────────────────────────────────────────
 Block* find_script_start(std::vector<Block*>& blocks) {
     for (Block* b : blocks)
         if (b->type == BLOCK_EVENT && b->prev == nullptr && b->next != nullptr)
@@ -773,19 +793,16 @@ Block* find_script_start(std::vector<Block*>& blocks) {
     return nullptr;
 }
 
-// پیدا کردن بلاک‌های رویدادی برای کلید خاص
 Block* find_key_event(std::vector<Block*>& blocks, const std::string& keyName) {
     for (Block* b : blocks)
         if (b->type == BLOCK_EVENT && b->prev == nullptr && b->next != nullptr &&
             b->text.find("when key pressed") != std::string::npos) {
-            // اگر ورودی دارد، کلید رو چک کن
             if (!b->inputs.empty() && b->inputs[0].value == keyName) return b;
-            if (b->inputs.empty()) return b; // هر کلیدی
+            if (b->inputs.empty()) return b;
         }
     return nullptr;
 }
 
-// پیدا کردن بلاک رویداد کلیک روی sprite
 Block* find_sprite_click_event(std::vector<Block*>& blocks) {
     for (Block* b : blocks)
         if (b->type == BLOCK_EVENT && b->prev == nullptr && b->next != nullptr &&
@@ -794,7 +811,6 @@ Block* find_sprite_click_event(std::vector<Block*>& blocks) {
     return nullptr;
 }
 
-// ─── رندر نتیجه Operator روی Stage ──────────────────────────────────────────
 inline void draw_operator_result(SDL_Renderer* r, TTF_Font* font, Stage* stage) {
     if (!g_hasOperatorResult || !font || !stage) return;
     const std::string& txt = g_operatorResultText;
@@ -818,13 +834,9 @@ inline void draw_operator_result(SDL_Renderer* r, TTF_Font* font, Stage* stage) 
     SDL_RenderDrawRect(r, &bg);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 
-    // draw_text forward declaration — تعریفش در render.h است
     extern void draw_text(SDL_Renderer*, TTF_Font*, const std::string&, int, int, SDL_Color);
     draw_text(r, font, txt, bx+12, by+6, {255,255,255,255});
 }
 
-// ─── رندر input بار ask ──────────────────────────────────────────────────────
-// وقتی g_askPending=true، در render loop یک textbox روی stage نشان داده می‌شود
-// و کاربر تایپ می‌کند؛ با Enter تأیید می‌شود و g_answer پر می‌شود.
 
 #endif

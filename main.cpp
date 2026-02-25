@@ -303,6 +303,17 @@ addPB(BLOCK_VARIABLES, "hide variable score");
     // ── وضعیت confirm dialog (New Project) ────────────────────────────────
     bool confirmNewProject = false;
 
+    // ── دیالوگ سیو/لود فایل ─────────────────────────────────────────────────
+    bool saveDialogOpen = false;
+    bool loadDialogOpen = false;
+    std::string fileDialogInput = "project.scratch";
+    bool fileDialogEditing = false;
+
+    // ── دیالوگ آپلود اسپرایت ────────────────────────────────────────────────
+    bool spriteUploadOpen = false;
+    std::string spriteUploadPath = "";
+    bool spriteUploadEditing = false;
+
     vector<Block*> workspaceBlocks;
     Block* draggedBlock = nullptr;
     BlockInput* activeInput = nullptr;
@@ -355,6 +366,71 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                     toggle_fullscreen();
                     continue;
                 }
+
+                // ── دیالوگ سیو فایل ─────────────────────────────────────────
+                if ((saveDialogOpen || loadDialogOpen) && fileDialogEditing) {
+                    if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                        if (saveDialogOpen) {
+                            save_project(fileDialogInput, workspaceBlocks, varsPanel);
+                        } else {
+                            load_project(fileDialogInput, workspaceBlocks, varsPanel, bid);
+                        }
+                        saveDialogOpen = loadDialogOpen = false;
+                        fileDialogEditing = false;
+                        SDL_StopTextInput();
+                        continue;
+                    }
+                    if (e.key.keysym.sym == SDLK_ESCAPE) {
+                        saveDialogOpen = loadDialogOpen = false;
+                        fileDialogEditing = false;
+                        SDL_StopTextInput();
+                        continue;
+                    }
+                    if (e.key.keysym.sym == SDLK_BACKSPACE && !fileDialogInput.empty()) {
+                        fileDialogInput.pop_back();
+                    }
+                    continue;
+                }
+
+                // ── دیالوگ آپلود اسپرایت ─────────────────────────────────────
+                if (spriteUploadOpen && spriteUploadEditing) {
+                    if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                        if (!spriteUploadPath.empty()) {
+                            SDL_Surface* s = IMG_Load(spriteUploadPath.c_str());
+                            if (s) {
+                                Costume nc;
+                                size_t sl = spriteUploadPath.find_last_of("/\\");
+                                std::string fn = (sl != std::string::npos) ? spriteUploadPath.substr(sl+1) : spriteUploadPath;
+                                size_t dot = fn.find_last_of('.');
+                                nc.name = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
+                                nc.texture = SDL_CreateTextureFromSurface(renderer, s);
+                                nc.w = s->w; nc.h = s->h;
+                                SDL_FreeSurface(s);
+                                sprite.costumes.push_back(nc);
+                                sprite.currentCostume = (int)sprite.costumes.size() - 1;
+                                sprite.texture = nc.texture;
+                                costumePanel.selectedIndex = sprite.currentCostume;
+                            }
+                        }
+                        spriteUploadOpen = false;
+                        spriteUploadEditing = false;
+                        spriteUploadPath = "";
+                        SDL_StopTextInput();
+                        continue;
+                    }
+                    if (e.key.keysym.sym == SDLK_ESCAPE) {
+                        spriteUploadOpen = false;
+                        spriteUploadEditing = false;
+                        spriteUploadPath = "";
+                        SDL_StopTextInput();
+                        continue;
+                    }
+                    if (e.key.keysym.sym == SDLK_BACKSPACE && !spriteUploadPath.empty()) {
+                        spriteUploadPath.pop_back();
+                    }
+                    continue;
+                }
+
                 // ── رویداد when key pressed ──────────────────────────────────
                 if (!g_askPending && !varsPanel.creating && !myBlocksCreating
                     && spriteInfoActiveField < 0) {
@@ -422,6 +498,14 @@ addPB(BLOCK_VARIABLES, "hide variable score");
             }
 
             if (e.type == SDL_TEXTINPUT) {
+                if ((saveDialogOpen || loadDialogOpen) && fileDialogEditing) {
+                    fileDialogInput += e.text.text;
+                    continue;
+                }
+                if (spriteUploadOpen && spriteUploadEditing) {
+                    spriteUploadPath += e.text.text;
+                    continue;
+                }
                 if (soundsPanel.uploadDialogOpen && soundsPanel.uploadEditing) {
                     soundsPanel.uploadPathInput += e.text.text;
                     continue;
@@ -655,12 +739,20 @@ addPB(BLOCK_VARIABLES, "hide variable score");
 
                 if (point_in_rect(mx, my, saveIconBtn.x, saveIconBtn.y,
                                   saveIconBtn.w, saveIconBtn.h)) {
-                    save_project(projectFile, workspaceBlocks, varsPanel);
+                    saveDialogOpen = true;
+                    loadDialogOpen = false;
+                    fileDialogInput = "project.scratch";
+                    fileDialogEditing = true;
+                    SDL_StartTextInput();
                     continue;
                 }
                 if (point_in_rect(mx, my, loadIconBtn.x, loadIconBtn.y,
                                   loadIconBtn.w, loadIconBtn.h)) {
-                    load_project(projectFile, workspaceBlocks, varsPanel, bid);
+                    loadDialogOpen = true;
+                    saveDialogOpen = false;
+                    fileDialogInput = "project.scratch";
+                    fileDialogEditing = true;
+                    SDL_StartTextInput();
                     continue;
                 }
                 // ── New Project با سوال سیو ────────────────────────────────
@@ -675,34 +767,8 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                         handle_sounds_panel_click(mx, my, soundsPanel);
                         continue;
                     }
-                    if (soundsPanel.selectedIndex >= 0 &&
-                        soundsPanel.selectedIndex < (int)soundsPanel.sounds.size()) {
-
-                        SoundClip& sc = soundsPanel.sounds[soundsPanel.selectedIndex];
-                        int wx2 = WORKSPACE_X, wy2 = STAGE_Y;
-                        int ww2 = WORKSPACE_W;
-
-                        SDL_Rect bigPlay = {wx2 + 20, wy2 + 220, 80, 36};
-                        if (point_in_rect(mx, my,
-                            bigPlay.x, bigPlay.y, bigPlay.w, bigPlay.h)) {
-                            if (sc.isPlaying)
-                                audio_stop(sc);
-                            else {
-                                audio_play(sc);
-                                if (sc.channel >= 0)
-                                    Mix_Volume(sc.channel,
-                                        (int)(sc.volume / 100.0f * MIX_MAX_VOLUME));
-                            }
-                            continue;
-                        }
-                        // bigStop
-                        SDL_Rect bigStop = {wx2 + 112, wy2 + 220, 80, 36};
-                        if (point_in_rect(mx, my,
-                            bigStop.x, bigStop.y, bigStop.w, bigStop.h)) {
-                            audio_stop(sc);
-                            continue;
-                        }
-                    }
+                    // workspace کلیک: volume/pitch sliders + play/stop
+                    handle_sounds_workspace_click(mx, my, soundsPanel);
                     continue; // بقیه کلیک‌ها در TAB_SOUNDS ignore
                 }
 
@@ -807,6 +873,35 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 if (costumePanel.visible &&
                     point_in_rect(mx, my, costumePanel.x, costumePanel.y,
                                   costumePanel.w, costumePanel.h)) {
+                    // بررسی دکمه‌های Upload و Delete
+                    {
+                        int btnY = costumePanel.y + costumePanel.h - 38;
+                        int halfW = (costumePanel.w - 12) / 2;
+                        SDL_Rect uploadBtn = {costumePanel.x + 4, btnY, halfW, 30};
+                        SDL_Rect deleteBtn = {costumePanel.x + 4 + halfW + 4, btnY, halfW, 30};
+
+                        if (point_in_rect(mx, my, uploadBtn.x, uploadBtn.y, uploadBtn.w, uploadBtn.h)) {
+                            spriteUploadOpen = true;
+                            spriteUploadEditing = true;
+                            spriteUploadPath = "";
+                            SDL_StartTextInput();
+                            continue;
+                        }
+                        if (point_in_rect(mx, my, deleteBtn.x, deleteBtn.y, deleteBtn.w, deleteBtn.h)) {
+                            int idx = sprite.currentCostume;
+                            if (idx >= 0 && idx < (int)sprite.costumes.size() && sprite.costumes.size() > 1) {
+                                if (sprite.costumes[idx].texture)
+                                    SDL_DestroyTexture(sprite.costumes[idx].texture);
+                                sprite.costumes.erase(sprite.costumes.begin() + idx);
+                                sprite.currentCostume = std::max(0, idx - 1);
+                                costumePanel.selectedIndex = sprite.currentCostume;
+                                if (!sprite.costumes.empty())
+                                    sprite.texture = sprite.costumes[sprite.currentCostume].texture;
+                            }
+                            continue;
+                        }
+                    }
+
                     int itemH2 = COSTUME_THUMB + 24 + 4;
                     int relY   = my - costumePanel.y - 36 - costumePanel.scrollOffset;
                     if (relY >= 0) {
@@ -885,6 +980,12 @@ addPB(BLOCK_VARIABLES, "hide variable score");
             }
             else if (e.type == SDL_MOUSEMOTION) {
                 handle_mouse_motion(e, &draggedBlock, workspace);
+                // drag روی sliders صدا (LMB نگه داشته شده)
+                if (activeTab == TAB_SOUNDS &&
+                    (e.motion.state & SDL_BUTTON(1))) {
+                    int mx2 = e.motion.x, my2 = e.motion.y;
+                    handle_sounds_workspace_click(mx2, my2, soundsPanel);
+                }
             }
         } // end event loop
 
@@ -1075,6 +1176,132 @@ addPB(BLOCK_VARIABLES, "hide variable score");
                 draw_text_centered(renderer, fontSmall,
                     scriptRunner.paused ? "Cont" : "Pause",
                     pauseBtn, COLOR_TEXT_WHITE);
+        }
+
+        // ── File Save/Load Dialog ────────────────────────────────────────────
+        auto drawFileDialog = [&](const std::string& title, const std::string& btnLabel,
+                                  SDL_Color btnColor) {
+            int ox = SCREEN_WIDTH/2 - 200, oy = SCREEN_HEIGHT/2 - 55;
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 130);
+            SDL_Rect ov = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+            SDL_RenderFillRect(renderer, &ov);
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+            SDL_SetRenderDrawColor(renderer, 250, 250, 255, 255);
+            SDL_Rect box = {ox, oy, 400, 110};
+            SDL_RenderFillRect(renderer, &box);
+            SDL_SetRenderDrawColor(renderer, 130, 110, 200, 255);
+            SDL_RenderDrawRect(renderer, &box);
+            if (fontBig) draw_text(renderer, fontBig, title, ox+12, oy+10, COLOR_TEXT_DARK);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_Rect field = {ox+12, oy+40, 280, 26};
+            SDL_RenderFillRect(renderer, &field);
+            SDL_SetRenderDrawColor(renderer, 80, 80, 220, 255);
+            SDL_RenderDrawRect(renderer, &field);
+            if (fontSmall)
+                draw_text(renderer, fontSmall, fileDialogInput + "|", ox+16, oy+46, COLOR_TEXT_DARK);
+            SDL_Rect btnOk = {ox+304, oy+40, 84, 26};
+            SDL_SetRenderDrawColor(renderer, btnColor.r, btnColor.g, btnColor.b, 255);
+            SDL_RenderFillRect(renderer, &btnOk);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, btnLabel, btnOk, COLOR_TEXT_WHITE);
+            SDL_Rect btnCancel = {ox+304-92, oy+40, 84, 26};
+            SDL_SetRenderDrawColor(renderer, 160, 160, 170, 255);
+            SDL_RenderFillRect(renderer, &btnCancel);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, "Cancel", btnCancel, COLOR_TEXT_WHITE);
+            if (fontSmall) draw_text(renderer, fontSmall, "File: .scratch or full path",
+                                     ox+12, oy+78, {140,130,160,255});
+
+            int cmx2, cmy2;
+            Uint32 cmb2 = SDL_GetMouseState(&cmx2, &cmy2);
+            static bool prevFD = false;
+            bool curFD = (cmb2 & SDL_BUTTON(1));
+            if (curFD && !prevFD) {
+                if (point_in_rect(cmx2, cmy2, btnOk.x, btnOk.y, btnOk.w, btnOk.h)) {
+                    if (saveDialogOpen) save_project(fileDialogInput, workspaceBlocks, varsPanel);
+                    else load_project(fileDialogInput, workspaceBlocks, varsPanel, bid);
+                    saveDialogOpen = loadDialogOpen = false;
+                    fileDialogEditing = false;
+                    SDL_StopTextInput();
+                } else if (point_in_rect(cmx2, cmy2, btnCancel.x, btnCancel.y, btnCancel.w, btnCancel.h)) {
+                    saveDialogOpen = loadDialogOpen = false;
+                    fileDialogEditing = false;
+                    SDL_StopTextInput();
+                }
+            }
+            prevFD = curFD;
+        };
+        if (saveDialogOpen)
+            drawFileDialog("Save Project As:", "Save", {60, 180, 80, 255});
+        else if (loadDialogOpen)
+            drawFileDialog("Load Project From:", "Load", {60, 140, 220, 255});
+
+        // ── Sprite Upload Dialog ─────────────────────────────────────────────
+        if (spriteUploadOpen) {
+            int ox = SCREEN_WIDTH/2 - 200, oy = SCREEN_HEIGHT/2 - 55;
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 130);
+            SDL_Rect ov = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+            SDL_RenderFillRect(renderer, &ov);
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+            SDL_SetRenderDrawColor(renderer, 250, 250, 255, 255);
+            SDL_Rect box = {ox, oy, 400, 110};
+            SDL_RenderFillRect(renderer, &box);
+            SDL_SetRenderDrawColor(renderer, 80, 150, 80, 255);
+            SDL_RenderDrawRect(renderer, &box);
+            if (fontBig) draw_text(renderer, fontBig, "Upload Sprite Image:", ox+12, oy+10, COLOR_TEXT_DARK);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_Rect field = {ox+12, oy+40, 280, 26};
+            SDL_RenderFillRect(renderer, &field);
+            SDL_SetRenderDrawColor(renderer, 60, 160, 60, 255);
+            SDL_RenderDrawRect(renderer, &field);
+            if (fontSmall)
+                draw_text(renderer, fontSmall, spriteUploadPath + "|", ox+16, oy+46, COLOR_TEXT_DARK);
+            SDL_Rect btnOk = {ox+304, oy+40, 84, 26};
+            SDL_SetRenderDrawColor(renderer, 60, 160, 60, 255);
+            SDL_RenderFillRect(renderer, &btnOk);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, "Upload", btnOk, COLOR_TEXT_WHITE);
+            SDL_Rect btnCancel = {ox+304-92, oy+40, 84, 26};
+            SDL_SetRenderDrawColor(renderer, 160, 160, 170, 255);
+            SDL_RenderFillRect(renderer, &btnCancel);
+            if (fontSmall) draw_text_centered(renderer, fontSmall, "Cancel", btnCancel, COLOR_TEXT_WHITE);
+            if (fontSmall) draw_text(renderer, fontSmall, "Enter full path to PNG/JPG image",
+                                     ox+12, oy+78, {100,140,100,255});
+
+            int cmx3, cmy3;
+            Uint32 cmb3 = SDL_GetMouseState(&cmx3, &cmy3);
+            static bool prevSU = false;
+            bool curSU = (cmb3 & SDL_BUTTON(1));
+            if (curSU && !prevSU) {
+                if (point_in_rect(cmx3, cmy3, btnOk.x, btnOk.y, btnOk.w, btnOk.h)) {
+                    if (!spriteUploadPath.empty()) {
+                        SDL_Surface* s = IMG_Load(spriteUploadPath.c_str());
+                        if (s) {
+                            Costume nc;
+                            size_t sl = spriteUploadPath.find_last_of("/\\");
+                            std::string fn = (sl != std::string::npos) ? spriteUploadPath.substr(sl+1) : spriteUploadPath;
+                            size_t dot = fn.find_last_of('.');
+                            nc.name = (dot != std::string::npos) ? fn.substr(0, dot) : fn;
+                            nc.texture = SDL_CreateTextureFromSurface(renderer, s);
+                            nc.w = s->w; nc.h = s->h;
+                            SDL_FreeSurface(s);
+                            sprite.costumes.push_back(nc);
+                            sprite.currentCostume = (int)sprite.costumes.size() - 1;
+                            sprite.texture = nc.texture;
+                            costumePanel.selectedIndex = sprite.currentCostume;
+                        }
+                    }
+                    spriteUploadOpen = false;
+                    spriteUploadEditing = false;
+                    spriteUploadPath = "";
+                    SDL_StopTextInput();
+                } else if (point_in_rect(cmx3, cmy3, btnCancel.x, btnCancel.y, btnCancel.w, btnCancel.h)) {
+                    spriteUploadOpen = false;
+                    spriteUploadEditing = false;
+                    spriteUploadPath = "";
+                    SDL_StopTextInput();
+                }
+            }
+            prevSU = curSU;
         }
 
         // ── Confirm New Project Dialog ────────────────────────────────────────

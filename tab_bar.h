@@ -1,6 +1,4 @@
-//
-// Created by Domim on 2/24/2026.
-//
+
 
 #pragma once
 #ifndef TAB_BAR_H
@@ -156,7 +154,6 @@ inline bool tab_bar_click(int mx, int my, ActiveTab& active)
 
 
 inline std::string escape_str(const std::string& s) {
-    // جایگزینی \n با \\n و | با \pipe
     std::string out;
     for (char c : s) {
         if (c == '|')  out += "\\pipe";
@@ -228,7 +225,6 @@ inline bool load_project(const std::string& path,
     std::ifstream f(path);
     if (!f.is_open()) return false;
 
-    // پاک کردن workspace فعلی
     for (auto* b : wsBlocks) delete b;
     wsBlocks.clear();
 
@@ -277,7 +273,6 @@ inline bool load_project(const std::string& path,
             b->next         = nullptr;
             b->prev         = nullptr;
 
-            // مقداردهی inputs از متن بلاک
             b->inputs.clear();
             int idx = 0;
             for (size_t i = 0; i + 1 < text.size(); i++) {
@@ -345,5 +340,5 @@ inline bool load_project(const std::string& path,
     return true;
 }
 
-#endif // TAB_BAR_H
+#endif
 
