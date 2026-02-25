@@ -1,6 +1,3 @@
-
-
-
 #ifndef SCRATCH_FOP_GLOBALS_H
 #define SCRATCH_FOP_GLOBALS_H
 
