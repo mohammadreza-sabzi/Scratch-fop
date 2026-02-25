@@ -1,11 +1,6 @@
-//
-// Created by Domim on 2/18/2026.
-//
 
 
-//
-// Created by Domim on 2/18/2026.
-//
+
 
 
 #ifndef SCRATCH_FOP_UTILS_H
@@ -17,13 +12,10 @@
 #include "structs.h"
 #include "globals.h"
 
-// ──────────────────────────────────────────────────────────────────────────────
 bool point_in_rect(int px, int py, int rx, int ry, int rw, int rh) {
     return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// آیا این بلاک باید C-شکل باشد؟
 bool is_c_shaped(const std::string& txt) {
     return txt == "forever"
         || txt.find("repeat") != std::string::npos
@@ -37,8 +29,6 @@ bool has_else_section(const std::string& txt) {
     return txt.find("if <> then else") != std::string::npos;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// آیا بلاک اپراتور خروجی boolean دارد؟
 bool is_boolean_operator(const std::string& txt) {
     return txt.find("() < ()") != std::string::npos
         || txt.find("() > ()") != std::string::npos
@@ -48,7 +38,6 @@ bool is_boolean_operator(const std::string& txt) {
         || txt.find("not <>") != std::string::npos;
 }
 
-// آیا بلاک اپراتور خروجی numeric دارد؟
 bool is_numeric_operator(const std::string& txt) {
     if (txt.find("BLOCK_OPERATORS") != std::string::npos) return false;
     return (txt.find("() + ()") != std::string::npos
@@ -70,17 +59,14 @@ bool is_numeric_operator(const std::string& txt) {
          || txt.find("letter () of ()") != std::string::npos);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// محاسبه عرض یک بلاک embedded
 int embedded_block_width(Block* b);
 
-// محاسبه عرض ایده‌آل بلاک بر اساس طول متن + inputها
 int compute_block_width(Block* b) {
     const std::string& txt = b->text;
     const int CHAR_W   = 7;
     const int INPUT_W_PER_CHAR = 8;
     const int INPUT_MIN_W = 30;
-    const int BOOL_SLOT_W = 40;  // عرض slot بولین <>
+    const int BOOL_SLOT_W = 40;
     const int PADDING  = 24;
 
     int textLen = 0;
@@ -98,7 +84,7 @@ int compute_block_width(Block* b) {
             }
             textLen += vw + 4;
             inputIdx++;
-            i++; // skip ')'
+            i++;
         } else if (txt[i] == '<' && i + 1 < txt.size() && txt[i+1] == '>') {
             int vw = BOOL_SLOT_W;
             if (inputIdx < (int)b->inputs.size() && b->inputs[inputIdx].embeddedBlock) {
@@ -106,7 +92,7 @@ int compute_block_width(Block* b) {
             }
             textLen += vw + 4;
             inputIdx++;
-            i++; // skip '>'
+            i++;
         } else {
             textLen += CHAR_W;
         }
@@ -114,21 +100,18 @@ int compute_block_width(Block* b) {
     return std::max(BLOCK_W, textLen + PADDING);
 }
 
-// محاسبه عرض یک بلاک embedded (خود بلاک embedded هم ممکنه slot داشته باشه)
 int embedded_block_width(Block* b) {
     if (!b) return 30;
     return compute_block_width(b);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// مقدار پیش‌فرض ورودی‌ها بر اساس نوع بلاک
 std::string default_input_val(const std::string& txt, int inputIdx) {
     if (txt.find("move") != std::string::npos)                return "10";
     if (txt.find("turn") != std::string::npos)                return "15";
     if (txt.find("go to x:") != std::string::npos)            return "0";
     if (txt.find("glide") != std::string::npos) {
-        if (inputIdx == 0) return "1"; // secs
-        return "0";                     // x یا y
+        if (inputIdx == 0) return "1";
+        return "0";
     }
     if (txt.find("point in direction") != std::string::npos)  return "90";
     if (txt.find("change x by") != std::string::npos)         return "10";
@@ -138,7 +121,7 @@ std::string default_input_val(const std::string& txt, int inputIdx) {
     if (txt.find("say") != std::string::npos ||
         txt.find("think") != std::string::npos) {
         if (inputIdx == 0) return "Hello!";
-        return "2"; // secs
+        return "2";
     }
     if (txt.find("switch costume") != std::string::npos)      return "0";
     if (txt.find("set size to") != std::string::npos)         return "100";
@@ -159,7 +142,6 @@ std::string default_input_val(const std::string& txt, int inputIdx) {
     return "0";
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void init_block_inputs(Block* b) {
     b->inputs.clear();
     const std::string& txt = b->text;
@@ -192,10 +174,8 @@ void init_block_inputs(Block* b) {
     b->w         = compute_block_width(b);
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-Block* clone_block(Block* src);  // forward decl
+Block* clone_block(Block* src);
 
-// deep clone یک embedded block
 static Block* clone_embedded(Block* src) {
     if (!src) return nullptr;
     Block* nb = new Block(*src);
@@ -229,7 +209,6 @@ Block* clone_block(Block* src) {
     return nb;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 bool block_matches_category(Block* b, CategoryType cat) {
     switch (cat) {
         case CAT_MOTION:    return b->type == BLOCK_MOTION;
@@ -246,23 +225,19 @@ bool block_matches_category(Block* b, CategoryType cat) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// ارتفاع کل یک بلاک (برای C-block شامل innerH هم هست)
 int block_total_height(Block* b) {
     if (!b->isCShaped) return b->h;
-    int total = b->h; // هدر بلاک (36)
+    int total = b->h;
     total += b->innerH;
-    total += 8; // نوار پایین C بعد از inner
+    total += 8;
     if (b->hasElse) {
-        total += 20; // نوار "else"
+        total += 20;
         total += b->elseH;
         total += 8;
     }
     return total;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// محاسبه فضای inner یک بلاک C بر اساس بلاک‌های داخلش
 void recalc_inner_height(Block* b) {
     if (!b->isCShaped) return;
     int h = 0;
@@ -284,31 +259,25 @@ void recalc_inner_height(Block* b) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// آدرس Y شروع ناحیه inner (داخل C)
 int c_inner_y(Block* b) {
-    return b->y + b->h; // بلافاصله بعد از هدر
+    return b->y + b->h;
 }
 
-// آدرس Y شروع ناحیه else
 int c_else_y(Block* b) {
     return c_inner_y(b) + b->innerH + 8;
 }
 
-// Y بعد از کل C-block (جایی که next snap می‌زند)
 int c_bottom_y(Block* b) {
     if (!b->isCShaped) return b->y + b->h;
     int base = c_inner_y(b) + b->innerH + 8;
     if (b->hasElse) base += 20 + b->elseH + 8;
-    return base; // نوار پایین (8px)
+    return base;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// layout بلاک‌های داخل C
 void layout_inner_blocks(Block* cblock) {
     if (!cblock->isCShaped) return;
     int innerY = c_inner_y(cblock) + 4;
-    int innerX = cblock->x + 16; // indent
+    int innerX = cblock->x + 16;
     int innerW = cblock->w - 16;
     Block* b = cblock->innerFirst;
     int h = 0;
@@ -318,7 +287,7 @@ void layout_inner_blocks(Block* cblock) {
         b->w = innerW;
         h += block_total_height(b);
         innerY += block_total_height(b);
-        layout_inner_blocks(b); // بازگشتی
+        layout_inner_blocks(b);
         b = b->next;
     }
     cblock->innerH = std::max(40, h + 4);
@@ -340,7 +309,6 @@ void layout_inner_blocks(Block* cblock) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void update_block_input_rects(Block* b) {
     if (b->inputs.empty()) return;
     const std::string& txt = b->text;
@@ -361,7 +329,6 @@ void update_block_input_rects(Block* b) {
                 valW = std::max(30, (int)val.size() * 8 + 8);
             }
             inp.rect = {xCursor, yCenter - 1, valW, 18};
-            // update embedded block position to match slot
             if (inp.embeddedBlock) {
                 inp.embeddedBlock->x = xCursor + 2;
                 inp.embeddedBlock->y = yCenter - 1;
@@ -381,7 +348,6 @@ void update_block_input_rects(Block* b) {
                 valW = BOOL_SLOT_W;
             }
             inp.rect = {xCursor, yCenter - 2, valW, 20};
-            // update embedded block position
             if (inp.embeddedBlock) {
                 inp.embeddedBlock->x = xCursor + 2;
                 inp.embeddedBlock->y = yCenter - 2;
@@ -398,7 +364,6 @@ void update_block_input_rects(Block* b) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void layout_palette_blocks(std::vector<Block*>& paletteBlocks,
                             const Palette& palette)
 {
@@ -426,7 +391,6 @@ void layout_palette_blocks(std::vector<Block*>& paletteBlocks,
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 Block* check_palette_click(int mx, int my,
                             std::vector<Block*>& blocks,
                             Palette& palette) {
@@ -440,7 +404,6 @@ Block* check_palette_click(int mx, int my,
     return nullptr;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 void handle_category_click(int mx, int my, Palette& palette) {
     for (auto& cat : palette.categories) {
         if (point_in_rect(mx, my, cat.iconRect.x, cat.iconRect.y,
