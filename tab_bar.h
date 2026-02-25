@@ -118,10 +118,6 @@ inline void draw_toolbar_icons(SDL_Renderer* r, TTF_Font* font,
         { newBtn,   "New",  { 220, 100,  40, 255 } },
         { saveBtn,  "Save", {  60, 180,  80, 255 } },
         { loadBtn,  "Load", {  60, 140, 220, 255 } },
-        { gearBtn,  "\xE2\x9A\x99", { 130,  90, 200, 255 } },
-        { notesBtn, "Prj",  { 130,  90, 200, 255 } },
-        { penBtn,   "Edt",  { 130,  90, 200, 255 } },
-        { bulbBtn,  "Tip",  { 220, 180,  40, 255 } },
     };
 
     for (auto& d : defs) {

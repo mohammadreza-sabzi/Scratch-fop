@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
         paletteBlocks.push_back(b);
     };
 
-   // ── MOTION ──
+   // ── MOTION ──aa
 addPB(BLOCK_MOTION, "move () steps");
 addPB(BLOCK_MOTION, "turn right () degrees");
 addPB(BLOCK_MOTION, "turn left () degrees");
@@ -296,9 +296,9 @@ addPB(BLOCK_VARIABLES, "hide variable score");
     int   spriteInfoActiveField = -1;   // 0=x,1=y,2=dir,3=size  (-1=none)
     std::string spriteInfoEditText = "";
 
-    SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 38, 32};
-    SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H - 4, 32, 32};
-    SDL_Rect pauseBtn= {STAGE_X + 10 + 44 + 38, STAGE_Y - TAB_H - 4, 38, 32}; // دکمه pause
+    SDL_Rect playBtn = {STAGE_X + 10,      STAGE_Y - TAB_H - 4, 42, 42};
+    SDL_Rect stopBtn = {STAGE_X + 10 + 44, STAGE_Y - TAB_H , 32, 32};
+    SDL_Rect pauseBtn= {STAGE_X + 10 + 44 + 38, STAGE_Y - TAB_H - 2, 38, 32}; // دکمه pause
 
     // ── وضعیت confirm dialog (New Project) ────────────────────────────────
     bool confirmNewProject = false;
